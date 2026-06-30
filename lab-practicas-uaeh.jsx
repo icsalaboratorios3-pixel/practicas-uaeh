@@ -1242,7 +1242,7 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
   };
   const removeProg = async (id) => { 
     const { error: errorProg } = await supabaseDeleteRow("programas", id);
-    const { error: errorMapping } = await supabase.from("programa_laboratorios").delete().eq("programaId", id);
+    const { error: errorMapping } = await supabase.from("programa_laboratorios").delete().eq("programa_id", id);
     setProgramas(prev => prev.filter(p => p.id !== id));
     setProgramaLaboratorios(prev => prev.filter(pl => pl.programaId !== id));
     notify(errorProg || errorMapping ? "Programa eliminado localmente, no eliminado en BD" : "Programa eliminado"); 
@@ -1251,11 +1251,11 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
   const toggleLaboratorio = async (progId, labId) => {
     const exists = programaLaboratorios.find(pl => pl.programaId === progId && pl.laboratorioId === labId);
     if (exists) {
-      const { error } = await supabase.from("programa_laboratorios").delete().match({ programaId: progId, laboratorioId: labId });
+      const { error } = await supabase.from("programa_laboratorios").delete().match({ programa_id: progId, laboratorio_id: labId });
       setProgramaLaboratorios(prev => prev.filter(pl => !(pl.programaId === progId && pl.laboratorioId === labId)));
       if (error) notify("Asignación de laboratorio removida localmente, no eliminada en BD", "error");
     } else {
-      const { error } = await supabase.from("programa_laboratorios").insert({ programaId: progId, laboratorioId: labId });
+      const { error } = await supabase.from("programa_laboratorios").insert({ programa_id: progId, laboratorio_id: labId });
       setProgramaLaboratorios(prev => [...prev, { programaId: progId, laboratorioId: labId }]);
       if (error) notify("Laboratorio asignado localmente, no guardado en BD", "error");
     }
