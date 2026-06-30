@@ -324,12 +324,32 @@ export default function App() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [notification, setNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [asignaturaCreators, setAsignaturaCreators] = useState(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("asignaturaCreators") : null;
+    return stored ? JSON.parse(stored) : {};
+  });
+  const [practicaCreators, setPracticaCreators] = useState(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("practicaCreators") : null;
+    return stored ? JSON.parse(stored) : {};
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       window.__loginData = loginData;
     }
   }, [loginData]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("asignaturaCreators", JSON.stringify(asignaturaCreators));
+    }
+  }, [asignaturaCreators]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("practicaCreators", JSON.stringify(practicaCreators));
+    }
+  }, [practicaCreators]);
 
   const loadRemoteData = async () => {
     const mergeWithDefaults = (defaults, remote, key) => {
@@ -605,8 +625,8 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         {activeSection === "laboratorios" && role === "admin" && <LaboratoriosAdmin laboratorios={laboratorios} setLaboratorios={setLaboratorios} users={users} responsableLaboratorios={responsableLaboratorios} setResponsableLaboratorios={setResponsableLaboratorios} notify={notify} />}
         {activeSection === "programas" && role === "admin" && <ProgramasAdmin programas={programas} setProgramas={setProgramas} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} setProgramaLaboratorios={setProgramaLaboratorios} notify={notify} />}
         {activeSection === "profesores" && <ProfesoresAdmin currentUser={currentUser} users={users} setUsers={setUsers} asignaturas={asignaturas} notify={notify} />}
-        {activeSection === "asignaturas" && <AsignaturasAdmin currentUser={currentUser} asignaturas={asignaturas} setAsignaturas={setAsignaturas} programas={programas} notify={notify} />}
-        {activeSection === "practicas" && <PracticasAdmin currentUser={currentUser} practicasCatalogo={practicasCatalogo} setPracticasCatalogo={setPracticasCatalogo} programas={programas} asignaturas={asignaturas} notify={notify} />}
+        {activeSection === "asignaturas" && <AsignaturasAdmin currentUser={currentUser} asignaturas={asignaturas} setAsignaturas={setAsignaturas} programas={programas} asignaturaCreators={asignaturaCreators} setAsignaturaCreators={setAsignaturaCreators} notify={notify} />}
+        {activeSection === "practicas" && <PracticasAdmin currentUser={currentUser} practicasCatalogo={practicasCatalogo} setPracticasCatalogo={setPracticasCatalogo} programas={programas} asignaturas={asignaturas} practicaCreators={practicaCreators} setPracticaCreators={setPracticaCreators} notify={notify} />}
         {activeSection === "perfil" && <ProfileSection currentUser={currentUser} users={users} setUsers={setUsers} setCurrentUser={setCurrentUser} notify={notify} />}
         {activeSection === "usuarios" && role === "admin" && <UsuariosAdmin users={users} setUsers={setUsers} notify={notify} />}
         {activeSection === "conflictos" && <ConflictosSection programaciones={programaciones} laboratorios={laboratorios} users={users} currentUser={currentUser} responsableLaboratorios={responsableLaboratorios} />}
@@ -1507,13 +1527,14 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
   );
 }
 
-function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas, notify }) {
+function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas, asignaturaCreators, setAsignaturaCreators, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const emptyForm = { nombre: "", programaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
   const visibleAsignaturas = asignaturas;
 
+  const canDeleteAsignatura = (a) => currentUser.role !== "laboratorio" || !asignaturaCreators[a.id];
   const canModifyAsignatura = (a) => true;
   const openAdd = () => { setForm(emptyForm); setEditing(null); setShowForm(true); };
   const openEdit = (a) => {
@@ -1538,6 +1559,9 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
     } else {
       const { data: inserted, error } = await supabaseInsertRow("asignaturas", nextAsignatura);
       const createdRow = inserted ? { ...inserted } : { ...nextAsignatura, id: Date.now() };
+      if (currentUser.role === "laboratorio") {
+        setAsignaturaCreators(prev => ({ ...prev, [createdRow.id]: currentUser.id }));
+      }
       const next = [...asignaturas, createdRow];
       setAsignaturas(next);
       notify(error ? `Asignatura agregada: ${error.message || "Error BD"}` : "Asignatura agregada", error ? "error" : "success");
@@ -1545,6 +1569,8 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
     setShowForm(false);
   };
   const removeAsignatura = async (id) => {
+    const target = asignaturas.find(a => a.id === id);
+    if (!canDeleteAsignatura(target)) return;
     const { error } = await supabase.from("asignaturas").delete().eq("id", id);
     const next = asignaturas.filter(a => a.id !== id);
     setAsignaturas(next);
@@ -1596,7 +1622,7 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
                   <td style={{ padding: "10px 10px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       {canModifyAsignatura(a) && <button onClick={() => openEdit(a)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Editar</button>}
-                      {canModifyAsignatura(a) && <button onClick={() => removeAsignatura(a.id)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
+                      {canDeleteAsignatura(a) && <button onClick={() => removeAsignatura(a.id)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
                     </div>
                   </td>
                 </tr>
@@ -1609,14 +1635,16 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
   );
 }
 
-function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, programas, asignaturas, notify }) {
+function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, programas, asignaturas, practicaCreators, setPracticaCreators, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const emptyForm = { nombre: "", programaId: "", asignaturaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
-  const visiblePracticas = practicasCatalogo;
+  const visiblePracticas = currentUser.role === "laboratorio"
+    ? practicasCatalogo.filter(p => !practicaCreators[p.id] || practicaCreators[p.id] === currentUser.id)
+    : practicasCatalogo;
 
-  const canModifyPractica = (p) => true;
+  const canModifyPractica = (p) => currentUser.role !== "laboratorio" || !practicaCreators[p.id] || practicaCreators[p.id] === currentUser.id;
   const asignaturasPorPrograma = form.programaId
     ? asignaturas.filter(a => parseInt(a.programaId ?? a.programa_id, 10) === parseInt(form.programaId, 10))
     : asignaturas;
@@ -1652,6 +1680,9 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
       const { data: inserted, error } = await supabaseInsertRow("practicas", nextPractica);
 
       const createdRow = inserted ? { ...inserted } : { ...nextPractica, id: Date.now() };
+      if (currentUser.role === "laboratorio") {
+        setPracticaCreators(prev => ({ ...prev, [createdRow.id]: currentUser.id }));
+      }
       const next = [...practicasCatalogo, createdRow];
       setPracticasCatalogo(next);
       notify(error ? `Práctica agregada: ${error.message || "Error BD"}` : "Práctica agregada", error ? "error" : "success");
@@ -1659,6 +1690,8 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
     setShowForm(false);
   };
   const removePractica = async (id) => {
+    const target = practicasCatalogo.find(p => p.id === id);
+    if (currentUser.role === "laboratorio" && practicaCreators[id] && practicaCreators[id] !== currentUser.id) return;
     const { error } = await supabase.from("practicas").delete().eq("id", id);
     const next = practicasCatalogo.filter(p => p.id !== id);
     setPracticasCatalogo(next);
