@@ -13,11 +13,11 @@ const mapObjectKeys = (obj, transform) => {
 };
 
 const DB_TABLE_COLUMNS = {
-  asignaturas: ["nombre", "activo", "programa_id", "created_by_laboratorio_id"],
-  practicas: ["nombre", "activo", "programa_id", "asignatura_id", "created_by_laboratorio_id"],
+  asignaturas: ["nombre", "activo", "programa_id"],
+  practicas: ["nombre", "activo", "programa_id", "asignatura_id"],
   laboratorios: ["nombre", "capacidad", "ubicacion", "activo"],
   programas: ["nombre", "activo"],
-  profiles: ["username", "password", "name", "role", "active", "email", "auth_user_id"],
+  profiles: ["username", "password", "name", "role", "active", "email", "auth_user_id", "asignaturas_ids"],
   programa_laboratorios: ["programa_id", "laboratorio_id"],
   responsable_laboratorios: ["responsable_id", "laboratorio_id"],
 };
@@ -744,7 +744,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
 
   return (
     <div>
-      <SectionHeader title={`Bienvenido/a, ${getUserShortName(currentUser?.name)}`} subtitle={`Peráodo semestral activo  Sistema de Gestión de Prácticas de Laboratorio`} />
+      <SectionHeader title={`Bienvenido/a, ${getUserShortName(currentUser?.name)}`} subtitle={`Periodo semestral activo  Sistema de Gestión de Prácticas de Laboratorio`} />
       
       {role === "laboratorio" && progPendientes > 0 && (
         <Card style={{ marginBottom: "1.5rem", background: "#FFFBF7", border: "2px solid #F39200", padding: "14px 16px" }}>
@@ -828,7 +828,7 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
     <div>
       <SectionHeader title="Programaciones" subtitle={`${programaciones.length} programaciones registradas`} />
       <div style={{ marginBottom: "1rem" }}>
-        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Buscar por asignatura, peráodo, profesor..." style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", width: 340, fontSize: 14, outline: "none" }} />
+        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Buscar por asignatura, periodo, profesor..." style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", width: 340, fontSize: 14, outline: "none" }} />
       </div>
       {selected ? (
       <ProgramacionDetail prog={selected} users={users} laboratorios={laboratorios} programas={programas} onBack={() => setSelected(null)} setProgramaciones={setProgramaciones} programaciones={programaciones} notify={notify} readOnly practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />
@@ -988,7 +988,7 @@ function ProgramacionDetail({ prog, users, laboratorios, programas, onBack, setP
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: "1.5rem" }}>
         <Card>
           <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 1rem", color: "#333" }}>Información General</h3>
-          <InfoRow label="Peráodo" value={data.periodo} />
+          <InfoRow label="Periodo" value={data.periodo} />
           <InfoRow label="Programa Educativo" value={programa?.nombre} />
           <InfoRow label="Asignatura" value={data.asignatura} />
           <InfoRow label="Profesor" value={prof?.name} />
@@ -1380,22 +1380,28 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
   const profes = users.filter(u => u.role === "profesor");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const emptyForm = { name: "", asignaturasIds: [], role: "profesor", active: true };
+  const emptyForm = { username: "", password: "", email: "", name: "", asignaturasIds: [], role: "profesor", active: true };
   const [form, setForm] = useState(emptyForm);
   const [showAsignaturasDropdown, setShowAsignaturasDropdown] = useState(false);
   const canModifyProfessors = currentUser.role === "admin";
 
   const openAdd = () => { setForm(emptyForm); setEditing(null); setShowForm(true); setShowAsignaturasDropdown(false); };
-  const openEdit = (u) => { setForm({ name: u.name, asignaturasIds: u.asignaturasIds || [], role: "profesor", active: u.active }); setEditing(u.id); setShowForm(true); setShowAsignaturasDropdown(false); };
+  const openEdit = (u) => { setForm({ username: u.username || "", password: "", email: u.email || "", name: u.name, asignaturasIds: u.asignaturasIds || [], role: "profesor", active: u.active }); setEditing(u.id); setShowForm(true); setShowAsignaturasDropdown(false); };
   const save = async () => {
-    if (!form.name || !canModifyProfessors) return;
+    if (!form.name || !form.username || !form.email || !canModifyProfessors) return;
     const nextProfesor = { ...form, id: editing || Date.now() };
     if (editing) {
-      const { data: updated, error } = await supabaseUpdateRow("profiles", editing, nextProfesor);
-      const next = users.map(u => u.id === editing ? (updated ? { ...u, ...updated } : nextProfesor) : u);
+      const updateRow = { username: form.username, email: form.email, name: form.name, asignaturasIds: form.asignaturasIds, role: "profesor", active: form.active };
+      if (form.password) updateRow.password = form.password;
+      const { data: updated, error } = await supabaseUpdateRow("profiles", editing, updateRow);
+      const next = users.map(u => u.id === editing ? (updated ? { ...u, ...updated } : { ...u, ...updateRow }) : u);
       setUsers(next);
       notify(error ? "Profesor actualizado localmente, no guardado en BD" : "Profesor actualizado");
     } else {
+      if (!form.password) {
+        notify("La contraseña es obligatoria para crear un profesor", "error");
+        return;
+      }
       const { data: inserted, error } = await supabaseInsertRow("profiles", nextProfesor);
       const created = inserted ? inserted : nextProfesor;
       setUsers(prev => [...prev, created]);
@@ -1413,11 +1419,30 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
       {showForm && (
         <Card style={{ marginBottom: "1.5rem", border: "2px solid #511013" }}>
           <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Profesor</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Usuario *</label>
+              <input value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))} placeholder="usuario.profesor"
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Correo electrónico *</label>
+              <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="profesor@uaeh.edu.mx"
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre completo *</label>
               <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="MC Ana López García"
                 style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Contraseña {editing ? "(dejar vacío para no cambiar)" : "*"}</label>
+              <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Contraseña"
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" checked={form.active} onChange={e => setForm(p => ({ ...p, active: e.target.checked }))} />
+              <label style={{ fontSize: 13, color: "#333" }}>Activo</label>
             </div>
             <div style={{ position: "relative" }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Asignaturas que imparte</label>
@@ -1485,13 +1510,11 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
 function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const emptyForm = { nombre: "", programaId: "", activo: true, createdByLaboratorioId: null };
+  const emptyForm = { nombre: "", programaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
-  const visibleAsignaturas = currentUser.role === "laboratorio"
-    ? asignaturas.filter(a => !a.createdByLaboratorioId || a.createdByLaboratorioId === currentUser.id)
-    : asignaturas;
+  const visibleAsignaturas = asignaturas;
 
-  const canModifyAsignatura = (a) => currentUser.role !== "laboratorio" || !a.createdByLaboratorioId || a.createdByLaboratorioId === currentUser.id;
+  const canModifyAsignatura = (a) => true;
   const openAdd = () => { setForm(emptyForm); setEditing(null); setShowForm(true); };
   const openEdit = (a) => {
     if (!canModifyAsignatura(a)) return;
@@ -1501,10 +1524,6 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
   };
   const save = async () => {
     if (!form.nombre || !form.programaId) return;
-    if (currentUser.role === "laboratorio" && editing) {
-      const existing = asignaturas.find(a => a.id === editing);
-      if (existing && existing.createdByLaboratorioId && existing.createdByLaboratorioId !== currentUser.id) return;
-    }
     const programaId = Number(form.programaId) || null;
     const nextAsignatura = {
       ...form,
@@ -1526,8 +1545,6 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
     setShowForm(false);
   };
   const removeAsignatura = async (id) => {
-    const target = asignaturas.find(a => a.id === id);
-    if (currentUser.role === "laboratorio" && target?.createdByLaboratorioId && target.createdByLaboratorioId !== currentUser.id) return;
     const { error } = await supabase.from("asignaturas").delete().eq("id", id);
     const next = asignaturas.filter(a => a.id !== id);
     setAsignaturas(next);
@@ -1595,13 +1612,11 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
 function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, programas, asignaturas, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const emptyForm = { nombre: "", programaId: "", asignaturaId: "", activo: true, createdByLaboratorioId: null };
+  const emptyForm = { nombre: "", programaId: "", asignaturaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
-  const visiblePracticas = currentUser.role === "laboratorio"
-    ? practicasCatalogo.filter(p => !p.createdByLaboratorioId || p.createdByLaboratorioId === currentUser.id)
-    : practicasCatalogo;
+  const visiblePracticas = practicasCatalogo;
 
-  const canModifyPractica = (p) => currentUser.role !== "laboratorio" || !p.createdByLaboratorioId || p.createdByLaboratorioId === currentUser.id;
+  const canModifyPractica = (p) => true;
   const asignaturasPorPrograma = form.programaId
     ? asignaturas.filter(a => parseInt(a.programaId ?? a.programa_id, 10) === parseInt(form.programaId, 10))
     : asignaturas;
@@ -1621,15 +1636,10 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
     if (!form.nombre || !form.programaId || !form.asignaturaId) return;
     const programaId = typeof form.programaId === "string" ? parseInt(form.programaId, 10) : form.programaId;
     const asignaturaId = typeof form.asignaturaId === "string" ? parseInt(form.asignaturaId, 10) : form.asignaturaId;
-    if (currentUser.role === "laboratorio" && editing) {
-      const existing = practicasCatalogo.find(p => p.id === editing);
-      if (existing && existing.createdByLaboratorioId && existing.createdByLaboratorioId !== currentUser.id) return;
-    }
     const nextPractica = {
       ...form,
       programaId,
       asignaturaId,
-      createdByLaboratorioId: currentUser.role === "laboratorio" ? currentUser.id : form.createdByLaboratorioId || null,
     };
 
     if (editing) {
@@ -1649,8 +1659,6 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
     setShowForm(false);
   };
   const removePractica = async (id) => {
-    const target = practicasCatalogo.find(p => p.id === id);
-    if (currentUser.role === "laboratorio" && target?.createdByLaboratorioId && target.createdByLaboratorioId !== currentUser.id) return;
     const { error } = await supabase.from("practicas").delete().eq("id", id);
     const next = practicasCatalogo.filter(p => p.id !== id);
     setPracticasCatalogo(next);
@@ -2255,7 +2263,7 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 1.5rem" }}>Información General</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ gridColumn: "1/-1" }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Peráodo semestral *</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Periodo semestral *</label>
               <input value={form.periodo} onChange={e => setForm(p => ({ ...p, periodo: e.target.value }))} style={{ width: "100%", padding: "9px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <div>
