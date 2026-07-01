@@ -73,25 +73,6 @@ const supabaseDeleteRow = async (table, id) => {
 
 const INITIAL_USERS = [
   { id: 1, username: "admin", password: "admin123", name: "Administrador General", role: "admin", active: true, email: "admin@uaeh.edu.mx" },
-  { id: 2, username: "alma.ortega", password: "prof123", name: "MC Alma Rosa Ortega Vargas", role: "profesor", active: true, email: "alma.ortega@uaeh.edu.mx", asignaturasIds: [1] },
-  { id: 3, username: "juan.perez", password: "prof123", name: "Dr. Juan Pérez García", role: "profesor", active: true, email: "juan.perez@uaeh.edu.mx", asignaturasIds: [3,4] },
-  { id: 4, username: "patricia.gonzalez", password: "lab123", name: "TL Patricia González Ramírez", role: "laboratorio", active: true, email: "patricia@uaeh.edu.mx" },
-  { id: 5, username: "roberto.luna", password: "lab123", name: "TL Roberto Luna Torres", role: "laboratorio", active: true, email: "roberto@uaeh.edu.mx" },
-  { id: 6, username: "gloria.tellez", password: "lab123", name: "M.C. Gloria Angélica Téllez Téllez", role: "laboratorio", active: true, email: "gloria.tellez@uaeh.edu.mx" },
-  { id: 7, username: "said.martinez", password: "lab123", name: "L.F. Said Jesús Martínez Meza", role: "laboratorio", active: true, email: "said.martinez@uaeh.edu.mx" },
-  { id: 8, username: "alejandra.islas", password: "lab123", name: "I.Q.P. Alejandra Islas Ortega", role: "laboratorio", active: true, email: "alejandra.islas@uaeh.edu.mx" },
-  { id: 9, username: "angelica.mendoza", password: "lab123", name: "M. en C. Biot. Angélica Mendoza Tolentino", role: "laboratorio", active: true, email: "angelica.mendoza@uaeh.edu.mx" },
-  { id: 10, username: "sergio.ocampo", password: "lab123", name: "Dr. Sergio Adrián Ocampo Ortega", role: "laboratorio", active: true, email: "sergio.ocampo@uaeh.edu.mx" },
-  { id: 11, username: "jose.munoz", password: "lab123", name: "M.C.Esp. José Víctor Muñoz Lozano", role: "laboratorio", active: true, email: "jose.munoz@uaeh.edu.mx" },
-  { id: 12, username: "maria.huesca", password: "lab123", name: "T.L. María del Rocío Huesca Rodríguez", role: "laboratorio", active: true, email: "maria.huesca@uaeh.edu.mx" },
-  { id: 13, username: "maria.sanchez", password: "lab123", name: "M.en C. María Guadalupe Sánchez Roldán", role: "laboratorio", active: true, email: "maria.sanchez@uaeh.edu.mx" },
-  { id: 14, username: "raul.marines", password: "lab123", name: "L.Q. Raúl Marines Lugo", role: "laboratorio", active: true, email: "raul.marines@uaeh.edu.mx" },
-  { id: 15, username: "ivonne.garcia", password: "lab123", name: "L.N. Ivonne García Antonio", role: "laboratorio", active: true, email: "ivonne.garcia@uaeh.edu.mx" },
-  { id: 16, username: "arturo.ascencio", password: "lab123", name: "C.D.Esp. Arturo Ascencio Villagrán", role: "laboratorio", active: true, email: "arturo.ascencio@uaeh.edu.mx" },
-  { id: 17, username: "itzel.moreno", password: "lab123", name: "Dra. Itzel Moreno Vite", role: "laboratorio", active: true, email: "itzel.moreno@uaeh.edu.mx" },
-  { id: 18, username: "antonia.iglesias", password: "lab123", name: "Dra. Antonia Yugoeslavia Iglesias Hermenegildo", role: "laboratorio", active: true, email: "antonia.iglesias@uaeh.edu.mx" },
-  { id: 19, username: "jonathan.angeles", password: "lab123", name: "Jonathan Angeles Jordan", role: "laboratorio", active: true, email: "jonathan.angeles@uaeh.edu.mx" },
-  { id: 20, username: "dulce.galindo", password: "lab123", name: "Mtra. Dulce Abril Galindo Luna", role: "laboratorio", active: true, email: "dulce.galindo@uaeh.edu.mx" },
 ];
 
 var INITIAL_RESPONSABLE_LABORATORIOS = [
