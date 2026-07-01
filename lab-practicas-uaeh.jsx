@@ -1514,7 +1514,7 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
   const [form, setForm] = useState(emptyForm);
   const visibleAsignaturas = asignaturas;
 
-  const canDeleteAsignatura = (a) => currentUser.role !== "laboratorio" || !a.createdById;
+  const canDeleteAsignatura = (a) => true;
   const canModifyAsignatura = (a) => true;
   const openAdd = () => { setForm(emptyForm); setEditing(null); setShowForm(true); };
   const openEdit = (a) => {
@@ -1624,7 +1624,7 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
     ? practicasCatalogo.filter(p => !p.createdById || p.createdById === currentUser.id)
     : practicasCatalogo;
 
-  const canModifyPractica = (p) => currentUser.role !== "laboratorio" || !p.createdById || p.createdById === currentUser.id;
+  const canModifyPractica = (p) => true;
   const asignaturasPorPrograma = form.programaId
     ? asignaturas.filter(a => parseInt(a.programaId ?? a.programa_id, 10) === parseInt(form.programaId, 10))
     : asignaturas;
