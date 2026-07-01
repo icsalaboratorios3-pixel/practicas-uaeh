@@ -559,7 +559,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
       )}
 
       <div style={{ display: "flex", flex: 1, minWidth: 0 }}>
-        <aside style={{ width: 240, minWidth: 240, maxWidth: 240, background: "white", borderRight: "1.5px solid #9a9393", display: "flex", flexDirection: "column", flexShrink: 0, height: "100vh", overflow: "hidden" }}>
+        <aside style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 240, minWidth: 240, maxWidth: 240, background: "white", borderRight: "1.5px solid #9a9393", display: "flex", flexDirection: "column", flexShrink: 0, zIndex: 1000, overflow: "hidden" }}>
         <div style={{ padding: "1.5rem 1.2rem", borderBottom: "1px solid #cababa" }}>
           <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center", justifyContent: "center" }}>
             <img src="/images/csa-logo.png" alt="CSa Logo" style={{ height: 35, objectFit: "contain" }} />
@@ -599,7 +599,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         </div>
       </aside>
 
-      <main style={{ flex: 1, overflowY: "auto", padding: "2rem", background: "#fafafa" }}>
+      <main style={{ marginLeft: 240, flex: 1, overflowY: "auto", padding: "2rem", background: "#fafafa" }}>
         {activeSection === "dashboard" && <DashboardSection currentUser={currentUser} programaciones={programaciones} laboratorios={laboratorios} users={users} responsableLaboratorios={responsableLaboratorios} />}
         {activeSection === "programaciones" && role === "admin" && <ProgramacionesAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} programas={programas} setProgramaciones={setProgramaciones} notify={notify} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />}
         {activeSection === "laboratorios" && role === "admin" && <LaboratoriosAdmin laboratorios={laboratorios} setLaboratorios={setLaboratorios} users={users} responsableLaboratorios={responsableLaboratorios} setResponsableLaboratorios={setResponsableLaboratorios} notify={notify} />}
