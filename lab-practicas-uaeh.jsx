@@ -1621,7 +1621,7 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
   const emptyForm = { nombre: "", programaId: "", asignaturaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
   const visiblePracticas = currentUser.role === "laboratorio"
-    ? practicasCatalogo.filter(p => !p.createdById || p.createdById === currentUser.id)
+    ? practicasCatalogo.filter(p => p.createdById === currentUser.id)
     : practicasCatalogo;
 
   const canModifyPractica = (p) => true;
