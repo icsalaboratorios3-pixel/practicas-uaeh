@@ -1358,7 +1358,10 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
 }
 
 function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) {
-  const profes = users.filter(u => u.role === "profesor");
+  const profes = users
+    .filter(u => u.role === "profesor")
+    .slice()
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" }));
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const emptyForm = { username: "", password: "", email: "", name: "", asignaturasIds: [], role: "profesor", active: true };
@@ -1493,7 +1496,9 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
   const [editing, setEditing] = useState(null);
   const emptyForm = { nombre: "", programaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
-  const visibleAsignaturas = asignaturas;
+  const visibleAsignaturas = asignaturas
+    .slice()
+    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" }));
 
   const canDeleteAsignatura = (a) => true;
   const canModifyAsignatura = (a) => true;
@@ -1601,9 +1606,11 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
   const [editing, setEditing] = useState(null);
   const emptyForm = { nombre: "", programaId: "", asignaturaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
-  const visiblePracticas = currentUser.role === "laboratorio"
+  const visiblePracticas = (currentUser.role === "laboratorio"
     ? practicasCatalogo.filter(p => p.createdById === currentUser.id)
-    : practicasCatalogo;
+    : practicasCatalogo)
+    .slice()
+    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" }));
 
   const canModifyPractica = (p) => true;
   const asignaturasPorPrograma = form.programaId
