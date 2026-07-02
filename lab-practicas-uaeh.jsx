@@ -12,6 +12,8 @@ const mapObjectKeys = (obj, transform) => {
   }, {});
 };
 
+const sortAlpha = (field) => (a, b) => (String(a[field] || "")).localeCompare(String(b[field] || ""), "es", { sensitivity: "base" });
+
 const DB_TABLE_COLUMNS = {
   asignaturas: ["nombre", "activo", "programa_id", "created_by_id"],
   practicas: ["nombre", "activo", "programa_id", "asignatura_id", "created_by_id"],
@@ -861,13 +863,14 @@ function ProgramacionDetail({ prog, users, laboratorios, programas, onBack, setP
 
   const selectedProgramaId = data.programaId ? Number(data.programaId) : null;
   const selectedAsignaturaId = data.asignaturaId ? Number(data.asignaturaId) : null;
-  const practicasDisponibles = selectedProgramaId && selectedAsignaturaId
+  const practicasDisponibles = (selectedProgramaId && selectedAsignaturaId
     ? practicasCatalogo.filter(p => {
         const practicaAsignaturaId = Number(p.asignaturaId ?? p.asignatura_id);
         const practicaProgramaId = Number(p.programaId ?? p.programa_id);
         return practicaAsignaturaId === selectedAsignaturaId && p.activo && practicaProgramaId === selectedProgramaId;
       })
-    : [];
+    : []
+  ).slice().sort(sortAlpha("nombre"));
 
   const requestReprogramacion = async () => {
     const fecha = new Date().toISOString().split("T")[0];
@@ -1116,7 +1119,7 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
         </Card>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-        {laboratorios.map(lab => (
+        {laboratorios.filter(lab => lab.activo).slice().sort(sortAlpha("nombre")).map(lab => (
           <Card key={lab.id} style={{ opacity: lab.activo ? 1 : 0.6 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 6px", color: "#222" }}> {lab.nombre}</h3>
@@ -1150,7 +1153,7 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
             <thead>
               <tr>
                 <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "2px solid #ddd", background: "#f9f9f9" }}>Laboratorio</th>
-                {users.filter(u => u.role === "laboratorio" && u.active).map(resp => (
+                {users.filter(u => u.role === "laboratorio" && u.active).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" })).map(resp => (
                   <th key={resp.id} style={{ textAlign: "center", padding: "10px 12px", borderBottom: "2px solid #ddd", background: "#f9f9f9" }}>{resp.name.split(" ").slice(-2).join(" ")}</th>
                 ))}
               </tr>
@@ -1437,7 +1440,11 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
               </button>
               {showAsignaturasDropdown && (
                 <div style={{ position: "absolute", top: 64, left: 0, width: "100%", maxHeight: 220, overflowY: "auto", background: "white", border: "1px solid #ddd", borderRadius: 8, boxShadow: "0 12px 25px rgba(0,0,0,0.08)", zIndex: 10 }}>
-                  {asignaturas.filter(a => a.activo).map(a => (
+                  {asignaturas
+                    .filter(a => a.activo)
+                    .slice()
+                    .sort(sortAlpha("nombre"))
+                    .map(a => (
                     <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid #f4f4f4" }}>
                       <input type="checkbox" checked={form.asignaturasIds.includes(a.id)}
                         onChange={() => {
@@ -1498,7 +1505,7 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
   const [form, setForm] = useState(emptyForm);
   const visibleAsignaturas = asignaturas
     .slice()
-    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" }));
+    .sort(sortAlpha("nombre"));
 
   const canDeleteAsignatura = (a) => true;
   const canModifyAsignatura = (a) => true;
@@ -1559,7 +1566,7 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
               <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa *</label>
               <select value={form.programaId} onChange={e => setForm(p => ({ ...p, programaId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
                 <option value="">Seleccionar programa...</option>
-                {programas.filter(p => p.activo).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
           </div>
@@ -1610,12 +1617,13 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
     ? practicasCatalogo.filter(p => p.createdById === currentUser.id)
     : practicasCatalogo)
     .slice()
-    .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" }));
+    .sort(sortAlpha("nombre"));
 
   const canModifyPractica = (p) => true;
-  const asignaturasPorPrograma = form.programaId
+  const asignaturasPorPrograma = (form.programaId
     ? asignaturas.filter(a => parseInt(a.programaId ?? a.programa_id, 10) === parseInt(form.programaId, 10))
-    : asignaturas;
+    : asignaturas
+  ).slice().sort(sortAlpha("nombre"));
 
   const openAdd = () => { setForm(emptyForm); setEditing(null); setShowForm(true); };
   const openEdit = (p) => {
@@ -1682,7 +1690,7 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
               <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa *</label>
               <select value={form.programaId} onChange={e => setForm(p => ({ ...p, programaId: parseInt(e.target.value, 10) || "", asignaturaId: "" }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
                 <option value="">Seleccionar programa...</option>
-                {programas.filter(p => p.activo).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
             <div>
@@ -2166,12 +2174,13 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
   const [practicas, setPracticas] = useState([]);
   const [conflicto, setConflicto] = useState(null);
 
-  const asignaturasDisponibles = form.programaId
+  const asignaturasDisponibles = (form.programaId
     ? asignaturas.filter(a => {
         const programaIdValue = a.programaId ?? a.programa_id;
         return Number(programaIdValue) === parseInt(form.programaId, 10) && a.activo;
       })
-    : asignaturas.filter(a => a.activo);
+    : asignaturas.filter(a => a.activo)
+  ).slice().sort(sortAlpha("nombre"));
 
   const selectedProgramaId = form.programaId ? parseInt(form.programaId, 10) : null;
   const selectedAsignaturaId = form.asignaturaId ? parseInt(form.asignaturaId, 10) : null;
@@ -2179,13 +2188,14 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
   const selectedAsignatura = asignaturas.find(a => a.id === selectedAsignaturaId);
 
   // Filtrar prácticas por programa + asignatura (priorizando materia y programa, no laboratorio)
-  const practicasDisponibles = selectedProgramaId && selectedAsignaturaId
+  const practicasDisponibles = (selectedProgramaId && selectedAsignaturaId
     ? practicasCatalogo.filter(p => {
         const practicaAsignaturaId = Number(p.asignaturaId ?? p.asignatura_id);
         const practicaProgramaId = Number(p.programaId ?? p.programa_id);
         return practicaAsignaturaId === selectedAsignaturaId && p.activo && practicaProgramaId === selectedProgramaId;
       })
-    : [];
+    : []
+  ).slice().sort(sortAlpha("nombre"));
 
   const checkConflicto = () => {
     if (!form.laboratorioId || !form.dia) return;
@@ -2240,11 +2250,12 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
   };
 
   // Laboratorios disponibles para el programa seleccionado
-  const labsDisponibles = form.programaId 
+  const labsDisponibles = (form.programaId 
     ? programaLaboratorios.filter(pl => (pl.programaId ?? pl.programa_id) === parseInt(form.programaId, 10))
         .map(pl => laboratorios.find(l => l.id === (pl.laboratorioId ?? pl.laboratorio_id) && l.activo))
         .filter(Boolean)
-    : laboratorios.filter(l => l.activo);
+    : laboratorios.filter(l => l.activo)
+  ).slice().sort(sortAlpha("nombre"));
 
   return (
     <div>
@@ -2271,7 +2282,7 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
               <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa educativo *</label>
               <select value={form.programaId} onChange={e => setForm(p => ({ ...p, programaId: e.target.value }))} style={{ width: "100%", padding: "9px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
                 <option value="">Seleccionar...</option>
-                {programas.filter(p => p.activo).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
             <div>
