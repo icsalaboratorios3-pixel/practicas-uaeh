@@ -1369,7 +1369,7 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
   const openAdd = () => { setForm(emptyForm); setEditing(null); setShowForm(true); setShowAsignaturasDropdown(false); };
   const openEdit = (u) => { setForm({ username: u.username || "", password: "", email: u.email || "", name: u.name, asignaturasIds: u.asignaturasIds || [], role: "profesor", active: u.active }); setEditing(u.id); setShowForm(true); setShowAsignaturasDropdown(false); };
   const save = async () => {
-    if (!form.name || !form.username || !form.email || !canModifyProfessors) return;
+    if (!form.name || !form.username || !canModifyProfessors) return;
     const nextProfesor = { ...form, id: editing || Date.now() };
     if (editing) {
       const updateRow = { username: form.username, email: form.email, name: form.name, asignaturasIds: form.asignaturasIds, role: "profesor", active: form.active };
@@ -1407,7 +1407,7 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
                 style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Correo electrónico *</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Correo electrónico</label>
               <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="profesor@uaeh.edu.mx"
                 style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
             </div>
