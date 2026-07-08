@@ -22,6 +22,13 @@ const DB_TABLE_COLUMNS = {
   profiles: ["username", "password", "name", "role", "active", "email", "auth_user_id", "asignaturas_ids"],
   programa_laboratorios: ["programa_id", "laboratorio_id"],
   responsable_laboratorios: ["responsable_id", "laboratorio_id"],
+  programaciones: [
+    "profesor_id", "laboratorio_id", "programa_id", "periodo", "asignatura_id", "asignatura",
+    "semestre", "grupo", "dia", "hora_inicio", "hora_fin", "num_alumnos", "num_equipos",
+    "validada", "validado_por", "fecha_validacion",
+    "reprogramacion_pendiente", "reprogramacion_autorizada", "reprogramacion_solicitada_por", "reprogramacion_solicitada_by", "reprogramacion_aprobada_by", "fecha_solicitud_reprogramacion", "fecha_aprobacion",
+    "practicas"
+  ],
 };
 
 const normalizeDbRow = (row) => {
@@ -593,7 +600,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         {activeSection === "perfil" && <ProfileSection currentUser={currentUser} users={users} setUsers={setUsers} setCurrentUser={setCurrentUser} notify={notify} />}
         {activeSection === "usuarios" && role === "admin" && <UsuariosAdmin users={users} setUsers={setUsers} notify={notify} />}
         {activeSection === "conflictos" && <ConflictosSection programaciones={programaciones} laboratorios={laboratorios} users={users} currentUser={currentUser} responsableLaboratorios={responsableLaboratorios} />}
-        {activeSection === "mis-programaciones" && role === "profesor" && <MisProgramaciones currentUser={currentUser} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} notify={notify} setActiveSection={setActiveSection} responsableLaboratorios={responsableLaboratorios} />}
+        {activeSection === "mis-programaciones" && role === "profesor" && <MisProgramaciones currentUser={currentUser} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} notify={notify} setActiveSection={setActiveSection} responsableLaboratorios={responsableLaboratorios} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} />}
         {activeSection === "nueva-programacion" && role === "profesor" && <NuevaProgramacion currentUser={currentUser} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} programaLaboratorios={programaLaboratorios} responsableLaboratorios={responsableLaboratorios} users={users} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} notify={notify} setActiveSection={setActiveSection} />}
         {activeSection === "disponibilidad" && role === "profesor" && <DisponibilidadLabs programaciones={programaciones} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} programas={programas} />}
         {activeSection === "mi-calendario" && role === "laboratorio" && <CalendarioLaboratorio currentUser={currentUser} programaciones={programaciones} users={users} programas={programas} laboratorios={laboratorios} setProgramaciones={setProgramaciones} notify={notify} responsableLaboratorios={responsableLaboratorios} />}
@@ -856,10 +863,10 @@ function ProgramacionDetail({ prog, users, laboratorios, programas, onBack, setP
     setData({ ...prog, practicas: (prog.practicas || []).map(p => ({ ...p })) });
   }, [prog]);
 
-  const prof = users.find(u => u.id === data.profesorId);
-  const lab = laboratorios.find(l => l.id === data.laboratorioId);
-  const programa = programas.find(p => p.id === data.programaId);
-  const validador = users.find(u => u.id === data.validadoPor);
+  const prof = users.find(u => String(u.id) === String(data.profesorId));
+  const lab = laboratorios.find(l => String(l.id) === String(data.laboratorioId));
+  const programa = programas.find(p => String(p.id) === String(data.programaId));
+  const validador = users.find(u => String(u.id) === String(data.validadoPor));
 
   const selectedProgramaId = data.programaId ? Number(data.programaId) : null;
   const selectedAsignaturaId = data.asignaturaId ? Number(data.asignaturaId) : null;
@@ -1159,10 +1166,10 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
               </tr>
             </thead>
             <tbody>
-              {laboratorios.filter(l => l.activo).map(lab => (
+              {laboratorios.filter(l => l.activo).slice().sort(sortAlpha("nombre")).map(lab => (
                 <tr key={lab.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
                   <td style={{ padding: "10px 12px", color: "#222", fontWeight: 600, minWidth: 240 }}>{lab.nombre}</td>
-                  {users.filter(u => u.role === "laboratorio" && u.active).map(resp => {
+                  {users.filter(u => u.role === "laboratorio" && u.active).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" })).map(resp => {
                     const assigned = responsableLaboratorios.some(rl => rl.laboratorioId === lab.id && rl.responsableId === resp.id);
                     return (
                       <td key={resp.id} style={{ textAlign: "center", padding: "10px 12px", background: assigned ? "#E8F7E8" : "#fff", color: assigned ? "#2E7D32" : "#bbb", fontWeight: assigned ? 700 : 400 }}>
@@ -1181,7 +1188,7 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
         <Card style={{ marginTop: "2rem", border: "2px solid #F39200" }}>
           <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>Asignar Responsables a {laboratorios.find(l => l.id === showResponsablesModal)?.nombre}</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {users.filter(u => u.role === "laboratorio" && u.active).map(resp => {
+            {users.filter(u => u.role === "laboratorio" && u.active).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" })).map(resp => {
               const isAssigned = responsableLaboratorios.some(rl => rl.laboratorioId === showResponsablesModal && rl.responsableId === resp.id);
               return (
                 <label key={resp.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px", borderRadius: 6, border: "1px solid #eee" }}>
@@ -2007,10 +2014,10 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
   );
 }
 
-function MisProgramaciones({ currentUser, programaciones, setProgramaciones, laboratorios, programas, notify, setActiveSection, responsableLaboratorios }) {
+function MisProgramaciones({ currentUser, programaciones, setProgramaciones, laboratorios, programas, notify, setActiveSection, responsableLaboratorios, asignaturas = [], practicasCatalogo = [] }) {
   const [selected, setSelected] = useState(null);
   const safeProgramaciones = Array.isArray(programaciones) ? programaciones : [];
-  const misProg = safeProgramaciones.filter(p => p.profesorId === currentUser.id);
+  const misProg = safeProgramaciones.filter(p => String(p.profesorId) === String(currentUser.id));
 
   const deleteProg = async (id) => {
     const prog = programaciones.find(p => p.id === id);
@@ -2073,7 +2080,7 @@ function MisProgramaciones({ currentUser, programaciones, setProgramaciones, lab
     }
   };
 
-  const selectedProg = selected ? safeProgramaciones.find(p => p.id === selected) : null;
+  const selectedProg = selected ? safeProgramaciones.find(p => String(p.id) === String(selected)) : null;
   if (selected) {
     if (!selectedProg) {
       return (
@@ -2233,7 +2240,7 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
   };
 
   const submit = async () => {
-    if (!form.asignaturaId || !form.laboratorioId) { notify("Completa todos los campos requeridos", "error"); return; }
+    if (!form.programaId || !form.asignaturaId || !form.laboratorioId) { notify("Completa todos los campos requeridos", "error"); return; }
     if (practicas.length === 0) { notify("Debes seleccionar al menos una práctica", "error"); return; }
     const invalid = practicas.some(pr => !pr.practicaId || !pr.fecha);
     if (invalid) { notify("Todas las prácticas deben tener una práctica seleccionada y una fecha", "error"); return; }
@@ -2241,7 +2248,23 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
       notify("Este laboratorio ya está ocupado en el horario seleccionado", "error");
       return;
     }
-    const nueva = { ...form, id: Date.now(), profesorId: currentUser.id, laboratorioId: parseInt(form.laboratorioId), programaId: parseInt(form.programaId), practicas, validada: false, validadoPor: null, fechaValidacion: null, reprogramacionPendiente: false, reprogramacionAutorizada: false, reprogramacionSolicitadaPor: null, reprogramacionAprobadaBy: null, fechaAprobacion: null };
+    const nueva = {
+      ...form,
+      id: Date.now(),
+      profesorId: currentUser.id,
+      laboratorioId: parseInt(form.laboratorioId, 10),
+      programaId: form.programaId ? parseInt(form.programaId, 10) : null,
+      asignaturaId: form.asignaturaId ? parseInt(form.asignaturaId, 10) : null,
+      practicas,
+      validada: false,
+      validadoPor: null,
+      fechaValidacion: null,
+      reprogramacionPendiente: false,
+      reprogramacionAutorizada: false,
+      reprogramacionSolicitadaPor: null,
+      reprogramacionAprobadaBy: null,
+      fechaAprobacion: null
+    };
     const { data: inserted, error } = await supabaseInsertRow("programaciones", nueva);
     const created = inserted ? inserted : nueva;
     setProgramaciones(prev => [...prev, created]);
@@ -2451,7 +2474,7 @@ function DisponibilidadLabs({ programaciones, laboratorios, programaLaboratorios
             <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 8 }}>Filtrar por programa (opcional)</label>
             <select value={programaId} onChange={e => setProgramaId(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 13 }}>
               <option value="">Todos los programas</option>
-              {programas.filter(p => p.activo).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
           </div>
         </div>
