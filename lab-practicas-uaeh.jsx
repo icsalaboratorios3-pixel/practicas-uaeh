@@ -2581,55 +2581,79 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
   };
 
   const confirmarValidacion = async (progId, validadoPorId, fecha) => {
-    const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, {
-      validada: true,
-      validadoPor: validadoPorId,
-      fechaValidacion: fecha,
-      reprogramacionPendiente: false,
-      reprogramacionAutorizada: false,
-      reprogramacionAprobadaBy: null,
-      fechaAprobacion: null
-    });
-    const persisted = updated ? updated : {
-      id: progId,
-      validada: true,
-      validadoPor: validadoPorId,
-      fechaValidacion: fecha,
-      reprogramacionPendiente: false,
-      reprogramacionAutorizada: false,
-      reprogramacionAprobadaBy: null,
-      fechaAprobacion: null
-    };
-    setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
-    const responsable = users.find(u => u.id === validadoPorId);
-    notify(error ? `Validación actualizada localmente` : `✓ Programación validada por ${responsable?.name}`);
-    setValidacionModal(null);
+    try {
+      const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, {
+        validada: true,
+        validadoPor: validadoPorId,
+        fechaValidacion: fecha,
+        reprogramacionPendiente: false,
+        reprogramacionAutorizada: false,
+        reprogramacionAprobadaBy: null,
+        fechaAprobacion: null
+      });
+      if (error) {
+        console.error("Supabase error validating programacion:", error);
+        notify(`Error al validar en BD: ${error.message || JSON.stringify(error)}`, "error");
+        // leave a local optimistic update so user sees the change, but warn it's not persisted
+        setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, validada: true, validadoPor: validadoPorId, fechaValidacion: fecha, reprogramacionPendiente: false, reprogramacionAutorizada: false, reprogramacionAprobadaBy: null, fechaAprobacion: null }) : p));
+        setValidacionModal(null);
+        return;
+      }
+      const persisted = updated ? updated : {
+        id: progId,
+        validada: true,
+        validadoPor: validadoPorId,
+        fechaValidacion: fecha,
+        reprogramacionPendiente: false,
+        reprogramacionAutorizada: false,
+        reprogramacionAprobadaBy: null,
+        fechaAprobacion: null
+      };
+      setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
+      const responsable = users.find(u => u.id === validadoPorId);
+      notify(`✓ Programación validada por ${responsable?.name}`);
+      setValidacionModal(null);
+    } catch (ex) {
+      console.error("Exception validating programacion:", ex);
+      notify(`Excepción al validar: ${ex?.message || String(ex)}`, "error");
+    }
   };
 
   const aprobarReprogramacion = async (progId) => {
-    const fecha = new Date().toISOString().split("T")[0];
-    const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, {
-      validada: false,
-      validadoPor: null,
-      fechaValidacion: null,
-      reprogramacionPendiente: false,
-      reprogramacionAutorizada: true,
-      reprogramacionAprobadaBy: currentUser.id,
-      fechaAprobacion: fecha
-    });
-    const persisted = updated ? updated : {
-      id: progId,
-      validada: false,
-      validadoPor: null,
-      fechaValidacion: null,
-      reprogramacionPendiente: false,
-      reprogramacionAutorizada: true,
-      reprogramacionAprobadaBy: currentUser.id,
-      fechaAprobacion: fecha
-    };
-    setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
-    const responsable = users.find(u => u.id === currentUser.id);
-    notify(error ? `Reprogramación autorizada localmente` : `✓ Reprogramación autorizada por ${responsable?.name}`);
+    try {
+      const fecha = new Date().toISOString().split("T")[0];
+      const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, {
+        validada: false,
+        validadoPor: null,
+        fechaValidacion: null,
+        reprogramacionPendiente: false,
+        reprogramacionAutorizada: true,
+        reprogramacionAprobadaBy: currentUser.id,
+        fechaAprobacion: fecha
+      });
+      if (error) {
+        console.error("Supabase error approving reprogramacion:", error);
+        notify(`Error al autorizar reprogramación en BD: ${error.message || JSON.stringify(error)}`, "error");
+        setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, validada: false, validadoPor: null, fechaValidacion: null, reprogramacionPendiente: false, reprogramacionAutorizada: true, reprogramacionAprobadaBy: currentUser.id, fechaAprobacion: fecha }) : p));
+        return;
+      }
+      const persisted = updated ? updated : {
+        id: progId,
+        validada: false,
+        validadoPor: null,
+        fechaValidacion: null,
+        reprogramacionPendiente: false,
+        reprogramacionAutorizada: true,
+        reprogramacionAprobadaBy: currentUser.id,
+        fechaAprobacion: fecha
+      };
+      setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
+      const responsable = users.find(u => u.id === currentUser.id);
+      notify(`✓ Reprogramación autorizada por ${responsable?.name}`);
+    } catch (ex) {
+      console.error("Exception approving reprogramacion:", ex);
+      notify(`Excepción al autorizar reprogramación: ${ex?.message || String(ex)}`, "error");
+    }
   };
 
   const filteredProg = misProg.filter(prog => {
