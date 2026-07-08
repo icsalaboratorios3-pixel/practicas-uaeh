@@ -855,7 +855,7 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
   );
 }
 
-function ProgramacionDetail({ prog, users, laboratorios, programas, onBack, setProgramaciones, programaciones, notify, readOnly = false, isEdit = false, currentUser, practicasCatalogo = [], asignaturas = [] }) {
+function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack, setProgramaciones, programaciones, notify, readOnly = false, isEdit = false, currentUser, practicasCatalogo = [], asignaturas = [] }) {
   const [editMode, setEditMode] = useState(isEdit && !readOnly);
   const [data, setData] = useState({ ...prog, practicas: (prog.practicas || []).map(p => ({ ...p })) });
 
@@ -867,6 +867,16 @@ function ProgramacionDetail({ prog, users, laboratorios, programas, onBack, setP
   const lab = laboratorios.find(l => String(l.id) === String(data.laboratorioId));
   const programa = programas.find(p => String(p.id) === String(data.programaId));
   const validador = users.find(u => String(u.id) === String(data.validadoPor));
+
+  // Defensive guards to avoid runtime errors that leave the screen en blanco
+  useEffect(() => {
+    if (!prog) {
+      console.error("ProgramacionDetail mounted without prog");
+    }
+    if (!Array.isArray(users)) {
+      console.warn("ProgramacionDetail: users prop is not an array", users);
+    }
+  }, [prog, users]);
 
   const selectedProgramaId = data.programaId ? Number(data.programaId) : null;
   const selectedAsignaturaId = data.asignaturaId ? Number(data.asignaturaId) : null;
@@ -2610,6 +2620,16 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
         fechaAprobacion: null
       };
       setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
+      // Verify persistence by querying the DB
+      try {
+        const { data: check, error: checkErr } = await supabase.from("programaciones").select("id, validada, validado_por, fecha_validacion").eq("id", progId).maybeSingle();
+        if (checkErr || !check) {
+          console.error("Validation not found after update:", checkErr);
+          notify("Validación no encontrada en BD después de actualizar. Revisa permisos/RLS.", "error");
+        }
+      } catch (ex) {
+        console.error("Exception checking validation persistence:", ex);
+      }
       const responsable = users.find(u => u.id === validadoPorId);
       notify(`✓ Programación validada por ${responsable?.name}`);
       setValidacionModal(null);
@@ -2648,6 +2668,16 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
         fechaAprobacion: fecha
       };
       setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
+      // Verify persistence by querying the DB
+      try {
+        const { data: check, error: checkErr } = await supabase.from("programaciones").select("id, reprogramacion_autorizada, reprogramacion_aprobada_by, fecha_aprobacion").eq("id", progId).maybeSingle();
+        if (checkErr || !check) {
+          console.error("Reprogramacion approval not found after update:", checkErr);
+          notify("Aprobación de reprogramación no encontrada en BD después de actualizar. Revisa permisos/RLS.", "error");
+        }
+      } catch (ex) {
+        console.error("Exception checking reprogram approval persistence:", ex);
+      }
       const responsable = users.find(u => u.id === currentUser.id);
       notify(`✓ Reprogramación autorizada por ${responsable?.name}`);
     } catch (ex) {
