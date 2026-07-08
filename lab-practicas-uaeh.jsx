@@ -600,7 +600,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         {activeSection === "perfil" && <ProfileSection currentUser={currentUser} users={users} setUsers={setUsers} setCurrentUser={setCurrentUser} notify={notify} />}
         {activeSection === "usuarios" && role === "admin" && <UsuariosAdmin users={users} setUsers={setUsers} notify={notify} />}
         {activeSection === "conflictos" && <ConflictosSection programaciones={programaciones} laboratorios={laboratorios} users={users} currentUser={currentUser} responsableLaboratorios={responsableLaboratorios} />}
-        {activeSection === "mis-programaciones" && role === "profesor" && <MisProgramaciones currentUser={currentUser} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} notify={notify} setActiveSection={setActiveSection} responsableLaboratorios={responsableLaboratorios} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} />}
+        {activeSection === "mis-programaciones" && role === "profesor" && <MisProgramaciones currentUser={currentUser} users={users} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} notify={notify} setActiveSection={setActiveSection} responsableLaboratorios={responsableLaboratorios} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} />}
         {activeSection === "nueva-programacion" && role === "profesor" && <NuevaProgramacion currentUser={currentUser} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} programaLaboratorios={programaLaboratorios} responsableLaboratorios={responsableLaboratorios} users={users} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} notify={notify} setActiveSection={setActiveSection} />}
         {activeSection === "disponibilidad" && role === "profesor" && <DisponibilidadLabs programaciones={programaciones} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} programas={programas} />}
         {activeSection === "mi-calendario" && role === "laboratorio" && <CalendarioLaboratorio currentUser={currentUser} programaciones={programaciones} users={users} programas={programas} laboratorios={laboratorios} setProgramaciones={setProgramaciones} notify={notify} responsableLaboratorios={responsableLaboratorios} />}
@@ -902,6 +902,7 @@ function ProgramacionDetail({ prog, users, laboratorios, programas, onBack, setP
       fechaValidacion: null,
       reprogramacionPendiente: false,
       reprogramacionAutorizada: false,
+      reprogramacionSolicitadaPor: null,
       reprogramacionSolicitadaBy: null,
       reprogramacionAprobadaBy: null,
       fechaAprobacion: null
@@ -2014,7 +2015,7 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
   );
 }
 
-function MisProgramaciones({ currentUser, programaciones, setProgramaciones, laboratorios, programas, notify, setActiveSection, responsableLaboratorios, asignaturas = [], practicasCatalogo = [] }) {
+function MisProgramaciones({ currentUser, users, programaciones, setProgramaciones, laboratorios, programas, notify, setActiveSection, responsableLaboratorios, asignaturas = [], practicasCatalogo = [] }) {
   const [selected, setSelected] = useState(null);
   const safeProgramaciones = Array.isArray(programaciones) ? programaciones : [];
   const misProg = safeProgramaciones.filter(p => String(p.profesorId) === String(currentUser.id));
@@ -2093,7 +2094,7 @@ function MisProgramaciones({ currentUser, programaciones, setProgramaciones, lab
         </div>
       );
     }
-    return <ProgramacionDetail prog={selectedProg} users={[currentUser]} laboratorios={laboratorios} programas={programas} onBack={() => setSelected(null)} setProgramaciones={setProgramaciones} programaciones={safeProgramaciones} notify={notify} readOnly={selectedProg.validada} currentUser={currentUser} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />;
+    return <ProgramacionDetail prog={selectedProg} users={users} laboratorios={laboratorios} programas={programas} onBack={() => setSelected(null)} setProgramaciones={setProgramaciones} programaciones={safeProgramaciones} notify={notify} readOnly={selectedProg.validada} currentUser={currentUser} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />;
   }
 
   return (
@@ -2579,9 +2580,8 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
     setValidacionModal({ ...prog, profesorNombre: prof?.name });
   };
 
-  const confirmarValidacion = (progId, validadoPorId, fecha) => {
-    setProgramaciones(prev => prev.map(p => p.id === progId ? {
-      ...p,
+  const confirmarValidacion = async (progId, validadoPorId, fecha) => {
+    const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, {
       validada: true,
       validadoPor: validadoPorId,
       fechaValidacion: fecha,
@@ -2589,16 +2589,26 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
       reprogramacionAutorizada: false,
       reprogramacionAprobadaBy: null,
       fechaAprobacion: null
-    } : p));
+    });
+    const persisted = updated ? updated : {
+      id: progId,
+      validada: true,
+      validadoPor: validadoPorId,
+      fechaValidacion: fecha,
+      reprogramacionPendiente: false,
+      reprogramacionAutorizada: false,
+      reprogramacionAprobadaBy: null,
+      fechaAprobacion: null
+    };
+    setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
     const responsable = users.find(u => u.id === validadoPorId);
-    notify(`✓ Programación validada por ${responsable?.name}`);
+    notify(error ? `Validación actualizada localmente` : `✓ Programación validada por ${responsable?.name}`);
     setValidacionModal(null);
   };
 
-  const aprobarReprogramacion = (progId) => {
+  const aprobarReprogramacion = async (progId) => {
     const fecha = new Date().toISOString().split("T")[0];
-    setProgramaciones(prev => prev.map(p => p.id === progId ? {
-      ...p,
+    const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, {
       validada: false,
       validadoPor: null,
       fechaValidacion: null,
@@ -2606,9 +2616,20 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
       reprogramacionAutorizada: true,
       reprogramacionAprobadaBy: currentUser.id,
       fechaAprobacion: fecha
-    } : p));
+    });
+    const persisted = updated ? updated : {
+      id: progId,
+      validada: false,
+      validadoPor: null,
+      fechaValidacion: null,
+      reprogramacionPendiente: false,
+      reprogramacionAutorizada: true,
+      reprogramacionAprobadaBy: currentUser.id,
+      fechaAprobacion: fecha
+    };
+    setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
     const responsable = users.find(u => u.id === currentUser.id);
-    notify(`✓ Reprogramación autorizada por ${responsable?.name}`);
+    notify(error ? `Reprogramación autorizada localmente` : `✓ Reprogramación autorizada por ${responsable?.name}`);
   };
 
   const filteredProg = misProg.filter(prog => {
