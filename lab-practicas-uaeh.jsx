@@ -322,6 +322,7 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [activeSection, setActiveSection] = useState("dashboard");
   const [notification, setNotification] = useState(null);
+  const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? window.navigator.onLine : true);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -333,6 +334,30 @@ export default function App() {
       window.sessionStorage.removeItem(USER_STORAGE_KEY);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleOnline = () => {
+      setIsOnline(true);
+      notify("Conexión restaurada. Ya puedes continuar.", "success");
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      notify("Sin conexión a internet. Comprueba tu red.", "error");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    if (!window.navigator.onLine) {
+      handleOffline();
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const loadRemoteData = async () => {
     const mergeWithDefaults = (defaults, remote, key) => {
