@@ -1104,12 +1104,20 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
       // use snake_case column names when calling Supabase
       const { error } = await supabase.from("responsable_laboratorios").delete().match({ laboratorio_id: labId, responsable_id: responsableId });
       setResponsableLaboratorios(prev => prev.filter(rl => !(rl.laboratorioId === labId && rl.responsableId === responsableId)));
-      if (error) notify("Responsable desasignado localmente, no eliminado en BD", "error");
+      if (error) {
+        notify("Responsable desasignado localmente, no eliminado en BD", "error");
+      } else {
+        notify("Responsable desasignado correctamente", "success");
+      }
     } else {
       // use snake_case column names when inserting so RLS/column mapping matches DB
       const { error } = await supabase.from("responsable_laboratorios").insert({ responsable_id: responsableId, laboratorio_id: labId });
       setResponsableLaboratorios(prev => [...prev, { responsableId, laboratorioId: labId }]);
-      if (error) notify("Responsable asignado localmente, no guardado en BD", "error");
+      if (error) {
+        notify("Responsable asignado localmente, no guardado en BD", "error");
+      } else {
+        notify("Responsable asignado correctamente", "success");
+      }
     }
   };
 
