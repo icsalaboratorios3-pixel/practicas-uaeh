@@ -312,7 +312,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     if (typeof window === "undefined") return null;
     try {
-      const saved = window.localStorage.getItem(USER_STORAGE_KEY);
+      const saved = window.sessionStorage.getItem(USER_STORAGE_KEY);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -328,9 +328,9 @@ export default function App() {
     if (typeof window === "undefined") return;
     if (currentUser) {
       const { password, ...safeUser } = currentUser;
-      window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
+      window.sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
     } else {
-      window.localStorage.removeItem(USER_STORAGE_KEY);
+      window.sessionStorage.removeItem(USER_STORAGE_KEY);
     }
   }, [currentUser]);
 
@@ -652,7 +652,7 @@ function StatCard({ label, value, color = "#511013", bg = "#FBE5E5" }) {
 
 function Footer() {
   const year = new Date().getFullYear();
-  const version = "v1.0";
+  const version = "v1.8";
   return (
     <footer style={{ padding: 12, background: "white", borderTop: "1px solid #eee", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
