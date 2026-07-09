@@ -300,6 +300,7 @@ const colors = {
 };
 
 export default function App() {
+  const USER_STORAGE_KEY = "labPracticasCurrentUser";
   const [users, setUsers] = useState(INITIAL_USERS);
   const [laboratorios, setLaboratorios] = useState(INITIAL_LABORATORIOS);
   const [programas, setProgramas] = useState(INITIAL_PROGRAMAS);
@@ -308,7 +309,15 @@ export default function App() {
   const [programaciones, setProgramaciones] = useState([]);
   const [responsableLaboratorios, setResponsableLaboratorios] = useState(INITIAL_RESPONSABLE_LABORATORIOS);
   const [programaLaboratorios, setProgramaLaboratorios] = useState(INITIAL_PROGRAMA_LABORATORIOS);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const saved = window.localStorage.getItem(USER_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loginData, setLoginData] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -316,10 +325,14 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.__loginData = loginData;
+    if (typeof window === "undefined") return;
+    if (currentUser) {
+      const { password, ...safeUser } = currentUser;
+      window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(safeUser));
+    } else {
+      window.localStorage.removeItem(USER_STORAGE_KEY);
     }
-  }, [loginData]);
+  }, [currentUser]);
 
   const loadRemoteData = async () => {
     const mergeWithDefaults = (defaults, remote, key) => {
@@ -763,7 +776,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
 
   return (
     <div>
-      <SectionHeader title={`Bienvenido/a, ${getUserShortName(currentUser?.name)}`} subtitle={`Periodo semestral activo  Sistema de Gestión de Prácticas de Laboratorio`} />
+      <SectionHeader title={`Bienvenido/a, ${getUserShortName(currentUser?.name)}`} subtitle={`Periodo semestral activo - Sistema de Gestión de Prácticas de Laboratorio`} />
       
       {role === "laboratorio" && progPendientes > 0 && (
         <Card style={{ marginBottom: "1.5rem", background: "#FFFBF7", border: "2px solid #F39200", padding: "14px 16px" }}>
@@ -779,7 +792,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
         </Card>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: "1.5rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16, marginBottom: "1.5rem" }}>   
         {role === "admin" && <>
           <StatCard label="Programaciones" value={programaciones.length} color="#511013" bg="#FBE5E5" />
           <StatCard label="Laboratorios" value={laboratorios.filter(l => l.activo).length} color="#F39200" bg="#FFF4E8" />
@@ -819,7 +832,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
                 return (
                   <tr key={i} style={{ borderBottom: "1px solid #f5f5f5" }}>
                     <td style={{ padding: "8px 10px", fontWeight: 600, color: "#511013" }}>{fmtDate(pr.fecha)}</td>
-                    <td style={{ padding: "8px 10px" }}><span style={{ fontSize: 11, background: "#511013", color: "white", padding: "3px 8px", borderRadius: 4, marginRight: 6, fontWeight: 600 }}>#{pr.numero}</span>{pr.nombre}</td>
+                    <td style={{ padding: "8px 10px" }}><span style={{ fontSize: 11, background: "#cf3e46", color: "white", padding: "3px 8px", borderRadius: 4, marginRight: 6, fontWeight: 600 }}>#{pr.numero}</span>{pr.nombre}</td>
                     <td style={{ padding: "8px 10px", color: "#555" }}>{pr.prog.asignatura}</td>
                     {role !== "profesor" && <td style={{ padding: "8px 10px", color: "#555" }}>{prof?.name.split(" ").slice(-2).join(" ")}</td>}
                     <td style={{ padding: "8px 10px", color: "#555" }}>{lab?.nombre.replace("Laboratorio de ", "Lab. ")}</td>
