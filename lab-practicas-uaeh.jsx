@@ -1674,7 +1674,17 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
     ? practicasCatalogo.filter(p => p.createdById === currentUser.id)
     : practicasCatalogo)
     .slice()
-    .sort(sortAlpha("nombre"));
+    .sort((a, b) => {
+      const programaA = programas.find(pg => pg.id === parseInt(a.programaId, 10))?.nombre || "";
+      const programaB = programas.find(pg => pg.id === parseInt(b.programaId, 10))?.nombre || "";
+      const cmpPrograma = String(programaA).localeCompare(String(programaB), "es", { sensitivity: "base" });
+      if (cmpPrograma !== 0) return cmpPrograma;
+      const asignaturaA = asignaturas.find(x => x.id === parseInt(a.asignaturaId, 10))?.nombre || "";
+      const asignaturaB = asignaturas.find(x => x.id === parseInt(b.asignaturaId, 10))?.nombre || "";
+      const cmpAsignatura = String(asignaturaA).localeCompare(String(asignaturaB), "es", { sensitivity: "base" });
+      if (cmpAsignatura !== 0) return cmpAsignatura;
+      return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base", numeric: true });
+    });
 
   const canModifyPractica = (p) => true;
   const asignaturasPorPrograma = (form.programaId
