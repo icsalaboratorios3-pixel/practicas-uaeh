@@ -500,10 +500,7 @@ function LoginScreen({ loginData, setLoginData, loginError, onLogin }) {
         <button onClick={onLogin} style={{ width: "100%", padding: "12px", background: "linear-gradient(135deg, #511013, #E8641C)", color: "white", border: "none", borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
           Iniciar sesión
         </button>
-        <div style={{ marginTop: 20, fontSize: 12, color: "#999" }}>
-          <p>Debug: loginData.username = {loginData.username || '<empty>'}</p>
-          <p>Debug: loginData.password = {loginData.password ? '***' : '<empty>'}</p>
-        </div>
+        
       </div>
     </div>
   );
@@ -589,7 +586,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         </div>
       </aside>
 
-      <main style={{ marginLeft: 240, flex: 1, overflowY: "auto", padding: "2rem", background: "#fafafa" }}>
+      <main style={{ marginLeft: 240, flex: 1, overflowY: "auto", padding: "2rem", background: "#fafafa", minWidth: 0 }}>
         {activeSection === "dashboard" && <DashboardSection currentUser={currentUser} programaciones={programaciones} laboratorios={laboratorios} users={users} responsableLaboratorios={responsableLaboratorios} />}
         {activeSection === "programaciones" && role === "admin" && <ProgramacionesAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} programas={programas} setProgramaciones={setProgramaciones} notify={notify} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />}
         {activeSection === "laboratorios" && role === "admin" && <LaboratoriosAdmin laboratorios={laboratorios} setLaboratorios={setLaboratorios} users={users} responsableLaboratorios={responsableLaboratorios} setResponsableLaboratorios={setResponsableLaboratorios} notify={notify} />}
@@ -605,6 +602,9 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         {activeSection === "disponibilidad" && role === "profesor" && <DisponibilidadLabs programaciones={programaciones} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} programas={programas} />}
         {activeSection === "mi-calendario" && role === "laboratorio" && <CalendarioLaboratorio currentUser={currentUser} programaciones={programaciones} users={users} programas={programas} laboratorios={laboratorios} setProgramaciones={setProgramaciones} notify={notify} responsableLaboratorios={responsableLaboratorios} />}
       </main>
+      </div>
+      <div style={{ marginLeft: 240 }}>
+        <Footer />
       </div>
     </div>
   );
@@ -634,6 +634,35 @@ function StatCard({ label, value, color = "#511013", bg = "#FBE5E5" }) {
       <p style={{ fontSize: 11, color: color, fontWeight: 700, margin: "0 0 6px", textTransform: "uppercase" }}>{label}</p>
       <p style={{ fontSize: 28, fontWeight: 700, color: color, margin: 0 }}>{value}</p>
     </div>
+  );
+}
+
+function Footer() {
+  const year = new Date().getFullYear();
+  const version = "v1.0";
+  return (
+    <footer style={{ padding: 12, background: "white", borderTop: "1px solid #eee", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <img src="/images/csa-logo.png" alt="logo" style={{ height: 28, objectFit: "contain" }} />
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#511013" }}>Prácticas de Laboratorio</div>
+          <div style={{ fontSize: 12, color: "#555" }}>Instituto de Ciencias de la Salud (ICSa) — UAEH</div>
+        </div>
+      </div>
+      <div style={{ color: "#555", textAlign: "center", flex: 1 }}>
+        <div style={{ marginBottom: 6 }}>Dirección de Laboratorios — Dra. Iris Cristina López</div>
+        <div>
+          <a href="/help" style={{ color: "#555", textDecoration: "none", marginRight: 10 }}>Ayuda</a>
+          <a href="/privacy" style={{ color: "#555", textDecoration: "none", marginRight: 10 }}>Privacidad</a>
+          <a href="/terms" style={{ color: "#555", textDecoration: "none" }}>Términos</a>
+        </div>
+      </div>
+      <div style={{ color: "#777", textAlign: "right", minWidth: 200 }}>
+        <div>Desarrollo: Rogelio Rocha — <a href="mailto:ro475972@uaeh.edu.mx">ro475972@uaeh.edu.mx</a></div>
+        <div style={{ marginTop: 4 }}>{version} · {year}</div>
+        <div style={{ marginTop: 6, fontSize: 11, color: "#999" }}>© {year} Instituto de Ciencias de la Salud, Universidad Autónoma del Estado de Hidalgo. Todos los derechos reservados.</div>
+      </div>
+    </footer>
   );
 }
 
