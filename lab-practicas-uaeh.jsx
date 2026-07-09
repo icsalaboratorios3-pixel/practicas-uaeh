@@ -2184,8 +2184,9 @@ function MisProgramaciones({ currentUser, users, programaciones, setProgramacion
 
 function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, laboratorios, programas, programaLaboratorios, responsableLaboratorios, users, asignaturas, practicasCatalogo, notify, setActiveSection }) {
   const [step, setStep] = useState(1);
+  const currentYear = new Date().getFullYear();
   const [form, setForm] = useState({
-    periodo: "ENERO - JUNIO 2026", programaId: "", asignaturaId: "", asignatura: "", semestre: "1", grupo: "1",
+    periodoTipo: "Enero - Junio", periodoYear: String(currentYear), programaId: "", asignaturaId: "", asignatura: "", semestre: "1", grupo: "1",
     laboratorioId: "", dia: "Lunes", horaInicio: "08:00", horaFin: "10:00",
     numAlumnos: 30, numEquipos: 6
   });
@@ -2259,8 +2260,10 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
       notify("Este laboratorio ya está ocupado en el horario seleccionado", "error");
       return;
     }
+    const periodoStr = `${form.periodoTipo} ${form.periodoYear}`;
     const nueva = {
       ...form,
+      periodo: periodoStr,
       id: Date.now(),
       profesorId: currentUser.id,
       laboratorioId: parseInt(form.laboratorioId, 10),
@@ -2310,7 +2313,14 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ gridColumn: "1/-1" }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Periodo semestral *</label>
-              <input value={form.periodo} onChange={e => setForm(p => ({ ...p, periodo: e.target.value }))} style={{ width: "100%", padding: "9px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <select value={form.periodoTipo} onChange={e => setForm(p => ({ ...p, periodoTipo: e.target.value }))} style={{ flex: 1, padding: "9px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
+                  <option value="Enero - Junio">Enero - Junio</option>
+                  <option value="Julio - Diciembre">Julio - Diciembre</option>
+                  <option value="Agosto - Diciembre">Agosto - Diciembre</option>
+                </select>
+                <input type="number" min="2000" max="2100" value={form.periodoYear} onChange={e => setForm(p => ({ ...p, periodoYear: e.target.value }))} style={{ width: 140, padding: "9px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }} />
+              </div>
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa educativo *</label>
