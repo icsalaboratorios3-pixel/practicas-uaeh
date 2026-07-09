@@ -650,7 +650,7 @@ function Footer() {
         </div>
       </div>
       <div style={{ color: "#555", textAlign: "center", flex: 1 }}>
-        <div style={{ marginBottom: 6 }}>Dirección de Laboratorios — Dra. Iris Cristina López</div>
+        <div style={{ marginBottom: 6 }}>Dirección de Laboratorios </div>
         <div>
           <a href="/help" style={{ color: "#555", textDecoration: "none", marginRight: 10 }}>Ayuda</a>
           <a href="/privacy" style={{ color: "#555", textDecoration: "none", marginRight: 10 }}>Privacidad</a>
