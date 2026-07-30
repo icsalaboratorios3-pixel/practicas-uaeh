@@ -1,0 +1,84 @@
+{
+  "support_email": "ro475972@uaeh.edu.mx",
+  "intents": [
+    {
+      "id": "inicio_sesion",
+      "patterns": [
+        "¿cómo inicio sesión?",
+        "no puedo entrar",
+        "inicio de sesión",
+        "no puedo iniciar sesión",
+        "comprobar usuario"
+      ],
+      "keywords": ["inicio", "sesión", "entrar", "usuario", "contraseña"],
+      "responses": [
+        "Para iniciar sesión usa tu usuario y contraseña en la pantalla principal. Si no recuerdas tu clave, contacta a soporte: ro475972@uaeh.edu.mx"
+      ]
+    },
+    {
+      "id": "programaciones",
+      "patterns": [
+        "¿dónde veo mis programaciones?",
+        "ver programaciones",
+        "mis programaciones",
+        "consultar programación",
+        "programaciones"
+      ],
+      "keywords": ["programaciones", "mirar", "ver", "lista", "horario"],
+      "responses": [
+        "Tus programaciones se encuentran en el menú lateral bajo 'Mis Programaciones' o 'Programaciones' según tu rol. Si no aparece, revisa que estés en el rol correcto y has iniciado sesión." 
+      ]
+    },
+    {
+      "id": "validar_practica",
+      "patterns": [
+        "¿cómo valido una práctica?",
+        "validar práctica",
+        "validación de práctica",
+        "práctica pendiente",
+        "validar programa"
+      ],
+      "keywords": ["validar", "práctica", "pendiente", "aprobar"],
+      "responses": [
+        "Para validar una práctica ve a tu sección de programaciones y busca la opción de validar. Si eres responsable de laboratorio, las programaciones pendientes aparecen en tu panel y puedes confirmarlas desde ahí."
+      ]
+    },
+    {
+      "id": "laboratorios",
+      "patterns": [
+        "¿cómo veo los laboratorios?",
+        "disponibilidad de laboratorios",
+        "lista de laboratorios",
+        "laboratorios disponibles",
+        "ver laboratorios"
+      ],
+      "keywords": ["laboratorios", "disponibilidad", "espacios", "sala", "ubicación"],
+      "responses": [
+        "La información de laboratorios está en el menú lateral bajo 'Laboratorios' o 'Disponibilidad'. Ahí puedes ver capacidad, ubicación y si están activos." 
+      ]
+    },
+    {
+      "id": "usuario_contraseña",
+      "patterns": [
+        "como cambio mi contraseña",
+        "cambiar contraseña",
+        "resetear contraseña",
+        "olvidé mi contraseña",
+        "actualizar contraseña"
+      ],
+      "keywords": ["contraseña", "clave", "cambiar", "resetear", "olvidé"],
+      "responses": [
+        "Para cambiar tu contraseña ve a 'Mi perfil' y usa el formulario de cambio. Si no puedes cambiarla, escribe a soporte: ro475972@uaeh.edu.mx"
+      ]
+    },
+    {
+      "id": "contacto_soporte",
+      "patterns": [
+        "soporte", "ayuda", "contacto", "mi problema", "reportar error"],
+      "keywords": ["soporte", "ayuda", "contacto", "error", "problema"],
+      "responses": [
+        "Si necesitas ayuda directa escríbeme a ro475972@uaeh.edu.mx y te responderé lo antes posible." 
+      ]
+    }
+  ]
+}

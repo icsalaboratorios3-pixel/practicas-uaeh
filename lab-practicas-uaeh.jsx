@@ -1,6 +1,7 @@
 ﻿
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "./supabaseClient";
+import ChatbotWidget from "./ChatbotWidget";
 
 const toSnakeCase = (str) => str.replace(/([A-Z])/g, "_$1").toLowerCase();
 const toCamelCase = (str) => str.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
@@ -27,6 +28,7 @@ const DB_TABLE_COLUMNS = {
     "semestre", "grupo", "dia", "hora_inicio", "hora_fin", "num_alumnos", "num_equipos",
     "validada", "validado_por", "fecha_validacion",
     "reprogramacion_pendiente", "reprogramacion_autorizada", "reprogramacion_solicitada_por", "reprogramacion_solicitada_by", "reprogramacion_aprobada_by", "fecha_solicitud_reprogramacion", "fecha_aprobacion",
+    "asistencia_profesor", "asistencia_responsable",
     "practicas"
   ],
 };
@@ -36,6 +38,8 @@ const normalizeDbRow = (row) => {
   return {
     ...normalized,
     practicas: Array.isArray(normalized.practicas) ? normalized.practicas : [],
+    asistenciaProfesor: normalized.asistenciaProfesor ?? false,
+    asistenciaResponsable: normalized.asistenciaResponsable ?? false,
     role: typeof normalized.role === "string" ? normalized.role.toLowerCase() : normalized.role,
   };
 };
@@ -54,7 +58,7 @@ const normalizeAppRowForDb = (table, row) => {
 
 const supabaseInsertRow = async (table, row) => {
   const dbRow = normalizeAppRowForDb(table, row);
-  if (dbRow.id == null) dbRow.id = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
+  if (dbRow.id == null) dbRow.id = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000); //
   const { data, error } = await supabase.from(table).insert(dbRow).select().maybeSingle();
   const normalizedData = data ? normalizeDbRow(data) : null;
   if (error) console.warn(`Supabase insert failed for ${table}:`, error.message);
@@ -72,7 +76,7 @@ const supabaseUpdateRow = async (table, id, row) => {
 const supabaseDeleteRow = async (table, id) => {
   try {
     const { data, error } = await supabase.from(table).delete().eq("id", id).select();
-    if (error) console.warn(`Supabase delete failed for ${table} id=${id}:`, error.message, error);
+    if (error) console.warn(`Supabase delete failed for ${table} id=${id}:`, error.message, error); 
     return { data, error };
   } catch (err) {
     console.warn(`Supabase delete exception for ${table} id=${id}:`, err);
@@ -262,6 +266,7 @@ var INITIAL_PROGRAMACIONES = [
     semestre: "2", grupo: "1", dia: "Miércoles", horaInicio: "10:00", horaFin: "11:00",
     numAlumnos: 35, numEquipos: 6,
     validada: false, validadoPor: null, fechaValidacion: null, reprogramacionPendiente: false, reprogramacionAutorizada: false, reprogramacionSolicitadaBy: null, reprogramacionAprobadaBy: null, fechaAprobacion: null,
+    asistenciaProfesor: false, asistenciaResponsable: false,
     practicas: [
       { id: 1, numero: 1, nombre: "Fenómenos de superficie", fecha: "2026-08-06", reprogramacion: "" },
       { id: 2, numero: 2, nombre: "Transporte a través de la membrana", fecha: "2026-08-13", reprogramacion: "" },
@@ -488,7 +493,14 @@ export default function App() {
     );
   }
 
-  if (!currentUser) return <LoginScreen loginData={loginData} setLoginData={setLoginData} loginError={loginError} onLogin={handleLogin} />;
+  if (!currentUser) {
+    return (
+      <>
+        <LoginScreen loginData={loginData} setLoginData={setLoginData} loginError={loginError} onLogin={handleLogin} />
+        <ChatbotWidget />
+      </>
+    );
+  }
 
   return (
     <MainApp
@@ -552,6 +564,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
     if (role === "admin") return [
       { id: "dashboard", label: "Panel General", icon: "" },
       { id: "programaciones", label: "Programaciones", icon: "" },
+      { id: "asistencias", label: "Asistencias", icon: "✓" },
       { id: "laboratorios", label: "Laboratorios", icon: "" },
       { id: "programas", label: "Programas Educativos", icon: "" },
       { id: "profesores", label: "Profesores", icon: "" },
@@ -563,6 +576,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
     if (role === "profesor") return [
       { id: "dashboard", label: "Mi Panel", icon: "" },
       { id: "mis-programaciones", label: "Mis Programaciones", icon: "" },
+      { id: "pase-lista", label: "Pase de Lista", icon: "✓" },
       { id: "nueva-programacion", label: "Nueva Programación", icon: "+" },
       { id: "disponibilidad", label: "Disponibilidad de Labs", icon: "" },
     ];
@@ -570,6 +584,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
       { id: "dashboard", label: "Mi Laboratorio", icon: "" },
       { id: "asignaturas", label: "Asignaturas", icon: "" },
       { id: "practicas", label: "Prácticas", icon: "" },
+      { id: "pase-lista", label: "Pase de Lista", icon: "✓" },
       { id: "mi-calendario", label: "Calendario de Prácticas", icon: "" },
       { id: "conflictos", label: "Horario de Prácticas", icon: "" },
     ];
@@ -627,6 +642,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
       <main style={{ marginLeft: 240, flex: 1, overflowY: "auto", padding: "2rem", background: "#fafafa", minWidth: 0 }}>
         {activeSection === "dashboard" && <DashboardSection currentUser={currentUser} programaciones={programaciones} laboratorios={laboratorios} users={users} responsableLaboratorios={responsableLaboratorios} />}
         {activeSection === "programaciones" && role === "admin" && <ProgramacionesAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} programas={programas} setProgramaciones={setProgramaciones} notify={notify} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />}
+        {activeSection === "asistencias" && role === "admin" && <AsistenciasAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} />}
         {activeSection === "laboratorios" && role === "admin" && <LaboratoriosAdmin laboratorios={laboratorios} setLaboratorios={setLaboratorios} users={users} responsableLaboratorios={responsableLaboratorios} setResponsableLaboratorios={setResponsableLaboratorios} notify={notify} />}
         {activeSection === "programas" && role === "admin" && <ProgramasAdmin programas={programas} setProgramas={setProgramas} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} setProgramaLaboratorios={setProgramaLaboratorios} notify={notify} />}
         {activeSection === "profesores" && <ProfesoresAdmin currentUser={currentUser} users={users} setUsers={setUsers} asignaturas={asignaturas} notify={notify} />}
@@ -639,11 +655,13 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         {activeSection === "nueva-programacion" && role === "profesor" && <NuevaProgramacion currentUser={currentUser} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} programaLaboratorios={programaLaboratorios} responsableLaboratorios={responsableLaboratorios} users={users} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} notify={notify} setActiveSection={setActiveSection} />}
         {activeSection === "disponibilidad" && role === "profesor" && <DisponibilidadLabs programaciones={programaciones} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} programas={programas} />}
         {activeSection === "mi-calendario" && role === "laboratorio" && <CalendarioLaboratorio currentUser={currentUser} programaciones={programaciones} users={users} programas={programas} laboratorios={laboratorios} setProgramaciones={setProgramaciones} notify={notify} responsableLaboratorios={responsableLaboratorios} />}
+        {activeSection === "pase-lista" && <PaseListaSection currentUser={currentUser} programaciones={programaciones} users={users} laboratorios={laboratorios} responsableLaboratorios={responsableLaboratorios} setProgramaciones={setProgramaciones} notify={notify} />}
       </main>
       </div>
       <div style={{ marginLeft: 240 }}>
         <Footer />
       </div>
+      <ChatbotWidget />
     </div>
   );
 }
@@ -674,7 +692,7 @@ function StatCard({ label, value, color = "#511013", bg = "#FBE5E5" }) {
     </div>
   );
 }
-
+//FOOTER ----------------------------------
 function Footer() {
   const year = new Date().getFullYear();
   const version = "v1.8";
@@ -704,6 +722,144 @@ function Footer() {
   );
 }
 
+function PaseListaSection({ currentUser, programaciones = [], users = [], laboratorios = [], responsableLaboratorios = [], setProgramaciones, notify }) {
+  const role = currentUser?.role;
+  const today = new Date().toISOString().split("T")[0];
+  const labIds = responsableLaboratorios.filter(rl => rl.responsableId === currentUser.id).map(rl => rl.laboratorioId);
+  const [selectedLab, setSelectedLab] = useState(labIds.length === 1 ? labIds[0] : "");
+  const myProgramaciones = role === "profesor"
+    ? programaciones.filter(p => String(p.profesorId) === String(currentUser.id))
+    : programaciones.filter(p => labIds.includes(p.laboratorioId));
+  const displayedProgramaciones = selectedLab
+    ? myProgramaciones.filter(p => p.laboratorioId === Number(selectedLab))
+    : myProgramaciones;
+
+  const toggleAttendance = async (progId, field) => {
+    const patch = { [field]: true };
+    const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, patch);
+    if (error) {
+      notify("Error guardando la asistencia. Intenta de nuevo.", "error");
+      setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...patch }) : p));
+      return;
+    }
+    const persisted = updated ? updated : patch;
+    setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
+    notify("Asistencia registrada correctamente.");
+  };
+
+  const pad = (value) => String(value).padStart(2, "0");
+  const getPracticeInfo = (prog) => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)) : [];
+    const practiceToday = practicas.find(pr => pr.fecha === today);
+    const nextPractice = practicas.find(pr => pr.fecha >= today);
+    const selected = practiceToday || nextPractice;
+    if (!selected) return { label: "Sin práctica próxima", date: "-", dateRaw: "9999-12-31" };
+    return { label: practiceToday ? "Práctica de hoy" : "Próxima práctica", date: `${fmtDate(selected.fecha)} • ${selected.nombre}`, dateRaw: selected.fecha };
+  };
+
+  const isPracticeDay = (prog) => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
+    return practicas.some(pr => pr.fecha === today);
+  };
+
+  return (
+    <div>
+      <SectionHeader title="Pase de Lista" subtitle="Marca asistencia del profesor y confirma llegada en el laboratorio" />
+      <Card>
+        <p style={{ margin: "0 0 1rem", color: "#555", lineHeight: 1.6 }}>
+          Aquí puede registrar su asistencia el responsable de laboratorio deberá confirmar la llegada para que la práctica quede como asistida.
+        </p>
+        {(role === "laboratorio" && labIds.length > 0) && (
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: "1rem" }}>
+            <label style={{ fontSize: 13, color: "#555", fontWeight: 600 }}>Filtrar por laboratorio:</label>
+            <select value={selectedLab} onChange={e => setSelectedLab(e.target.value)}
+              style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #ddd", fontSize: 14 }}>
+              <option value="">Todos los laboratorios</option>
+              {laboratorios
+                .filter(lab => labIds.includes(lab.id))
+                .map(lab => <option key={lab.id} value={lab.id}>{lab.nombre}</option>)}
+            </select>
+          </div>
+        )}
+        {displayedProgramaciones.length === 0 ? (
+          <div style={{ padding: "2rem", color: "#777", textAlign: "center" }}>
+            No hay programaciones disponibles para este registro de asistencia.
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#F5F5F5", borderBottom: "2px solid #ddd" }}>
+                {['Asignatura', 'Grupo', 'Profesor', 'Laboratorio', 'Práctica', 'Asistencia prof.', 'Confirmación lab.', 'Estado', 'Acción'].map(header => (
+                  <th key={header} style={{ padding: "10px", textAlign: 'left', color: '#444', fontWeight: 700, fontSize: 12 }}>{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {displayedProgramaciones.slice().sort((a, b) => {
+                const pa = getPracticeInfo(a).dateRaw;
+                const pb = getPracticeInfo(b).dateRaw;
+                if (pa === pb) return (a.asignatura || "").localeCompare(b.asignatura || "");
+                return pa.localeCompare(pb);
+              }).map(prog => {
+                const prof = users.find(u => u.id === prog.profesorId);
+                const lab = laboratorios.find(l => l.id === prog.laboratorioId);
+                const practiceInfo = getPracticeInfo(prog);
+                const confirmed = prog.asistenciaProfesor && prog.asistenciaResponsable;
+                return (
+                  <tr key={prog.id} style={{ borderBottom: '1px solid #eee', background: confirmed ? '#E8F5E9' : 'white' }}>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.asignatura}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.grupo}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prof?.name || '—'}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{lab?.nombre || '—'}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{practiceInfo.label}: <strong>{practiceInfo.date}</strong></td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaProfesor ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaProfesor ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                        {prog.asistenciaProfesor ? 'Marcado' : 'Pendiente'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaResponsable ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaResponsable ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                        {prog.asistenciaResponsable ? 'Confirmado' : 'Pendiente'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                      {confirmed ? (
+                        <span style={{ color: '#2E7D32', fontWeight: 700 }}>Asistencia confirmada</span>
+                      ) : (
+                        <span style={{ color: '#E8641C', fontWeight: 700 }}>{prog.asistenciaProfesor || prog.asistenciaResponsable ? 'Parcial' : 'Sin registrar'}</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                      {role === 'profesor' ? (
+                        <button
+                          disabled={prog.asistenciaProfesor || !isPracticeDay(prog)}
+                          onClick={() => toggleAttendance(prog.id, 'asistenciaProfesor')}
+                          style={{ minWidth: 120, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaProfesor ? '#C8E6C9' : '#511013', color: 'white', cursor: prog.asistenciaProfesor || !isPracticeDay(prog) ? 'default' : 'pointer', opacity: prog.asistenciaProfesor || !isPracticeDay(prog) ? 0.5 : 1, fontWeight: 700 }}
+                        >
+                          {prog.asistenciaProfesor ? 'Presente' : 'Marcar presente'}
+                        </button>
+                      ) : (
+                        <button
+                          disabled={prog.asistenciaResponsable || !isPracticeDay(prog)}
+                          onClick={() => toggleAttendance(prog.id, 'asistenciaResponsable')}
+                          style={{ minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaResponsable ? '#C8E6C9' : '#F39200', color: 'white', cursor: prog.asistenciaResponsable || !isPracticeDay(prog) ? 'default' : 'pointer', opacity: prog.asistenciaResponsable || !isPracticeDay(prog) ? 0.5 : 1, fontWeight: 700 }}
+                        >
+                          {prog.asistenciaResponsable ? 'Confirmado' : 'Confirmar llegada'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+//Sección de perfil de usuario para cambiar contraseña-----------------------------
 function ProfileSection({ currentUser, users, setUsers, setCurrentUser, notify }) {
   const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [error, setError] = useState("");
@@ -781,6 +937,7 @@ function ProfileSection({ currentUser, users, setUsers, setCurrentUser, notify }
   );
 }
 
+//Función para mostrar el panel de control del usuario según su rol (profesor, laboratorio o admin)--------
 function DashboardSection({ currentUser, programaciones, laboratorios, users, responsableLaboratorios }) {
   const role = currentUser?.role || "profesor";
   const getUserShortName = (name) => (name || "Usuario").split(" ").slice(-2).join(" ");
@@ -871,6 +1028,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
   );
 }
 
+//Función para mostrar la sección de programaciones para el administrador del sistema-----------------------------
 function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, setProgramaciones, notify, practicasCatalogo = [], asignaturas = [] }) {
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState(null);
@@ -922,6 +1080,93 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
   );
 }
 
+function AsistenciasAdmin({ programaciones = [], users = [], laboratorios = [] }) {
+  const [filter, setFilter] = useState("");
+  const safeProgramaciones = Array.isArray(programaciones) ? programaciones : [];
+  const filtered = safeProgramaciones.filter(p => {
+    const prof = users.find(u => u.id === p.profesorId);
+    const lab = laboratorios.find(l => l.id === p.laboratorioId);
+    return !filter || [p.asignatura, p.periodo, p.grupo, prof?.name, lab?.nombre].join(" ").toLowerCase().includes(filter.toLowerCase());
+  });
+
+  const getPracticeInfo = (prog) => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
+    const today = new Date().toISOString().split("T")[0];
+    const practiceToday = practicas.find(pr => pr.fecha === today);
+    const nextPractice = practicas.find(pr => pr.fecha >= today);
+    const selected = practiceToday || nextPractice;
+    if (!selected) return "Sin práctica próxima";
+    return `${fmtDate(selected.fecha)} • ${selected.nombre}`;
+  };
+
+  return (
+    <div>
+      <SectionHeader title="Asistencias" subtitle="Registros de asistencia de profesores y responsables" />
+      <Card>
+        <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ color: "#555", fontSize: 14, lineHeight: 1.6 }}>
+            Aquí puedes ver todas las programaciones y el estado de la asistencia del profesor y del responsable de laboratorio.
+          </div>
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Buscar por profesor, asignatura, laboratorio..."
+            style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", minWidth: 280, fontSize: 14, outline: "none" }}
+          />
+        </div>
+        {filtered.length === 0 ? (
+          <div style={{ padding: "2rem", color: "#777", textAlign: "center" }}>
+            No se encontraron registros de asistencia.
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#F5F5F5", borderBottom: "2px solid #ddd" }}>
+                {['Profesor', 'Asignatura', 'Grupo', 'Lab', 'Periodo', 'Práctica', 'Asistencia prof.', 'Confirmación lab.', 'Estado'].map(header => (
+                  <th key={header} style={{ padding: "10px", textAlign: 'left', color: '#444', fontWeight: 700, fontSize: 12 }}>{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(prog => {
+                const prof = users.find(u => u.id === prog.profesorId);
+                const lab = laboratorios.find(l => l.id === prog.laboratorioId);
+                const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
+                const practiceInfo = getPracticeInfo(prog);
+                const status = prog.asistenciaProfesor && prog.asistenciaResponsable ? 'Completa' : (prog.asistenciaProfesor || prog.asistenciaResponsable ? 'Parcial' : 'Sin registrar');
+                return (
+                  <tr key={prog.id} style={{ borderBottom: '1px solid #eee', background: status === 'Completa' ? '#E8F5E9' : 'white' }}>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prof?.name || '—'}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.asignatura}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.grupo}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{lab?.nombre || '—'}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.periodo}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{practiceInfo}</td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaProfesor ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaProfesor ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                        {prog.asistenciaProfesor ? 'Sí' : 'No'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaResponsable ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaResponsable ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                        {prog.asistenciaResponsable ? 'Sí' : 'No'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px', verticalAlign: 'top', fontWeight: 700, color: status === 'Completa' ? '#2E7D32' : status === 'Parcial' ? '#E8641C' : '#777' }}>
+                      {status}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+//Función para mostrar la sección de programaciones para el profesor del sistema-----------------------------
 function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack, setProgramaciones, programaciones, notify, readOnly = false, isEdit = false, currentUser, practicasCatalogo = [], asignaturas = [] }) {
   const [editMode, setEditMode] = useState(isEdit && !readOnly);
   const [data, setData] = useState({ ...prog, practicas: (prog.practicas || []).map(p => ({ ...p })) });
@@ -1123,6 +1368,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
   );
 }
 
+// Componente para mostrar una fila de información con etiqueta y valor
 function InfoRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f5f5f5", fontSize: 13 }}>
@@ -1132,6 +1378,7 @@ function InfoRow({ label, value }) {
   );
 }
 
+// Función para mostrar la sección de laboratorios para el administrador del sistema-----------------------------
 function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLaboratorios, setResponsableLaboratorios, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1295,6 +1542,7 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
   );
 }
 
+// Función para mostrar la sección de programas para el administrador del sistema-----------------------------
 function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaboratorios, setProgramaLaboratorios, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1455,6 +1703,7 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
   );
 }
 
+// Función para mostrar la sección de profesores para el administrador del sistema-----------------------------
 function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) {
   const profes = users
     .filter(u => u.role === "profesor")
@@ -1593,6 +1842,7 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
   );
 }
 
+// Función para mostrar la sección de asignaturas para el administrador del sistema-----------------------------
 function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1703,6 +1953,7 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
   );
 }
 
+//Función para mostrar la sección de practicas para el administrador del sistema-----------------------------
 function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, programas, asignaturas, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1845,6 +2096,7 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
   );
 }
 
+//Función para mostrar la sección de usuarios para el administrador del sistema-----------------------------
 function UsuariosAdmin({ users, setUsers, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1944,6 +2196,7 @@ function UsuariosAdmin({ users, setUsers, notify }) {
   );
 }
 
+//Función para detectar conflictos entre programaciones en el mismo día-----------------------------
 function detectConflictos(programaciones, laboratorios) {
   const conflictos = [];
   for (let i = 0; i < programaciones.length; i++) {
@@ -1956,9 +2209,10 @@ function detectConflictos(programaciones, laboratorios) {
       }
     }
   }
-  return conflictos;
+  return conflictos; //
 }
 
+//Función para mostrar la sección de conflictos de horario para el administrador del sistema-----------------------------
 function ConflictosSection({ programaciones, laboratorios, users, currentUser, responsableLaboratorios }) {
   const [selectedLab, setSelectedLab] = useState(null);
   const todos = detectConflictos(programaciones, laboratorios);
@@ -1985,6 +2239,24 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
   if (currentUser.role === "laboratorio") {
     conflictos = todos.filter(c => misLabs.includes(c.a.laboratorioId) || misLabs.includes(c.b.laboratorioId));
   }
+
+  const normalizeDayName = (value) => value?.toLowerCase().normalize("NFD").replace(/[-]|[ -]|[-]/g, "").replace(/[ -]/g, "").replace(/[ -]/g, "").replace(/[ -]/g, "").replace(/[\u0300-\u036f]/g, "") || "";
+  const dayNameFromDate = (date) => {
+    const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+    return days[new Date(date).getDay()];
+  };
+  const getPracticeForDay = (prog, day) => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
+    const sorted = practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+    if (!sorted.length) return null;
+    const today = new Date().toISOString().split("T")[0];
+    const normalizedSelected = normalizeDayName(day);
+    const sameWeekday = sorted.find(pr => normalizeDayName(dayNameFromDate(pr.fecha)) === normalizedSelected && pr.fecha >= today);
+    if (sameWeekday) return sameWeekday;
+    const nextPractice = sorted.find(pr => pr.fecha >= today);
+    if (nextPractice) return nextPractice;
+    return sorted[0];
+  };
 
   const dayOrder = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
   const groupedByDay = filteredProg.reduce((acc, prog) => {
@@ -2059,7 +2331,7 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
                     {groupedByDay[selectedDay]?.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)).map(prog => {
                       const lab = laboratorios.find(l => l.id === prog.laboratorioId);
                       return (
-                        <div key={prog.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, padding: 14, borderRadius: 10, background: "#fafafa", border: "1px solid #ececec" }}>
+                        <div key={prog.id} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, padding: 14, borderRadius: 10, background: "#fafafa", border: "1px solid #ececec" }}>
                           <div>
                             <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Laboratorio</div>
                             <div style={{ fontSize: 14, fontWeight: 700, color: "#333" }}>{lab?.nombre || "Sin laboratorio"}</div>
@@ -2067,6 +2339,15 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
                           <div>
                             <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Asignatura</div>
                             <div style={{ fontSize: 14, fontWeight: 700, color: "#333" }}>{prog.asignatura}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Práctica</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#333" }}>
+                              {(() => {
+                                const practicaDelDia = getPracticeForDay(prog, selectedDay);
+                                return practicaDelDia ? `#${practicaDelDia.numero} ${practicaDelDia.nombre}` : "Sin práctica asignada";
+                              })()}
+                            </div>
                           </div>
                           <div>
                             <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Horario</div>
@@ -2680,6 +2961,8 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
   const [validacionModal, setValidacionModal] = useState(null);
   const [viewMode, setViewMode] = useState("tabla"); // "tabla" o "calendario"
   const [expandedProgIds, setExpandedProgIds] = useState([]);
+  const [editingProgId, setEditingProgId] = useState(null);
+  const [editCapacity, setEditCapacity] = useState({ numAlumnos: "", numEquipos: "" });
 
   const handleValidar = (progId) => {
     const prog = programaciones.find(p => p.id === progId);
@@ -2789,11 +3072,76 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
     const prof = users.find(u => u.id === prog.profesorId)?.name.toLowerCase() || "";
     const lab = laboratorios.find(l => l.id === prog.laboratorioId)?.nombre.toLowerCase() || "";
     const programaNombre = programas.find(pg => pg.id === prog.programaId)?.nombre.toLowerCase() || "";
-    const practicaMatch = prog.practicas.some(pr => [pr.nombre, pr.reprogramacion].join(" ").toLowerCase().includes(q));
+    const practicaMatch = Array.isArray(prog.practicas) ? prog.practicas.some(pr => [pr.nombre, pr.reprogramacion].join(" ").toLowerCase().includes(q)) : false;
     return [prog.asignatura, prog.periodo, prog.grupo, prog.semestre, prof, lab, programaNombre].join(" ").includes(q) || practicaMatch;
   });
 
   const today = new Date().toISOString().split("T")[0];
+  const normalizeText = (value) => (value || "").toString().toLowerCase().normalize("NFD").replace(/[-]/g, "").replace(/[ -]/g, "").replace(/[\u0300-\u036f]/g, "").trim();
+  const dayOfWeekFromDate = (date) => {
+    if (!date) return "";
+    const dayNames = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+    return dayNames[new Date(date).getDay()];
+  };
+  const findPracticeForProgDay = (prog) => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
+    const targetDay = normalizeText(prog.dia);
+    const sorted = practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const match = sorted.find(pr => normalizeText(dayOfWeekFromDate(pr.fecha)) === targetDay && pr.fecha >= today);
+    if (match) return match;
+    const nextByDate = sorted.find(pr => pr.fecha >= today);
+    if (nextByDate) return nextByDate;
+    return sorted.length ? sorted[sorted.length - 1] : null;
+  };
+
+  const handleStartEdit = (prog) => {
+    setEditingProgId(prog.id);
+    setEditCapacity({
+      numAlumnos: prog.numAlumnos != null ? String(prog.numAlumnos) : "",
+      numEquipos: prog.numEquipos != null ? String(prog.numEquipos) : ""
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingProgId(null);
+    setEditCapacity({ numAlumnos: "", numEquipos: "" });
+  };
+
+  const saveCapacity = async (progId) => {
+    const updatedValues = {
+      numAlumnos: Number(editCapacity.numAlumnos) || 0,
+      numEquipos: Number(editCapacity.numEquipos) || 0
+    };
+    const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, updatedValues);
+    if (error) {
+      notify("Error guardando los datos de capacidad. Intenta de nuevo.", "error");
+      setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...updatedValues }) : p));
+      cancelEdit();
+      return;
+    }
+    const persisted = updated ? updated : updatedValues;
+    setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
+    notify("Capacidad actualizada correctamente.");
+    cancelEdit();
+  };
+
+  const deleteProg = async (progId) => {
+    const prog = programaciones.find(p => p.id === progId);
+    if (prog?.validada) {
+      notify("No puedes eliminar una programación validada.", "error");
+      return;
+    }
+    const confirmed = window.confirm("¿Estás seguro de eliminar esta programación? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+
+    const { data, error } = await supabaseDeleteRow("programaciones", progId);
+    if (error) {
+      notify("Error al eliminar la programación. Intenta de nuevo.", "error");
+      return;
+    }
+    setProgramaciones(prev => prev.filter(p => p.id !== progId));
+    notify("Programación eliminada correctamente.");
+  };
 
   return (
     <div>
@@ -2940,7 +3288,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
             const lab = laboratorios.find(l => l.id === prog.laboratorioId);
             const programa = programas.find(pg => pg.id === prog.programaId);
             const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
-            const proximaPractica = practicas.find(p => p.fecha >= today);
+            const practicaDelDia = findPracticeForProgDay(prog);
             
             return (
               <Card key={prog.id} style={{ borderLeft: `4px solid ${prog.validada ? "#2E7D32" : "#F39200"}`, background: prog.validada ? "#f9f9f9" : "white" }}>
@@ -2981,10 +3329,54 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#333" }}>{prog.numAlumnos} alumnos • {prog.numEquipos} equipos</div>
                   </div>
                   <div>
+                    <span style={{ fontSize: 11, color: "#888", fontWeight: 600 }}>Práctica del día</span>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#333" }}>
+                      {practicaDelDia ? `${practicaDelDia.nombre} (${fmtDate(practicaDelDia.fecha)})` : "Sin práctica próxima"}
+                    </div>
+                  </div>
+                  <div>
                     <span style={{ fontSize: 11, color: "#888", fontWeight: 600 }}>Estado</span>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#333" }}>{prog.validada ? "Validada" : "Pendiente"}</div>
                   </div>
                 </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 12 }}>
+                  {!prog.validada && (
+                    <button onClick={() => handleStartEdit(prog)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid #F39200", background: "#FFF4E8", color: "#E8641C", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                      ✎ Editar alumnos / equipos
+                    </button>
+                  )}
+                  {!prog.validada && (
+                    <button onClick={() => deleteProg(prog.id)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid #e8e8e8", background: "white", color: "#c0392b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                      🗑 Eliminar programación
+                    </button>
+                  )}
+                </div>
+
+                {editingProgId === prog.id && (
+                  <div style={{ marginBottom: 12, padding: "14px", background: "#FFF4E8", border: "1px solid #F2D5C3", borderRadius: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
+                      <label style={{ display: "block", fontSize: 12, color: "#555", fontWeight: 700 }}>
+                        Alumnos
+                        <input type="number" min="0" value={editCapacity.numAlumnos} onChange={e => setEditCapacity(prev => ({ ...prev, numAlumnos: e.target.value }))}
+                          style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box" }} />
+                      </label>
+                      <label style={{ display: "block", fontSize: 12, color: "#555", fontWeight: 700 }}>
+                        Equipos
+                        <input type="number" min="0" value={editCapacity.numEquipos} onChange={e => setEditCapacity(prev => ({ ...prev, numEquipos: e.target.value }))}
+                          style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box" }} />
+                      </label>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                      <button onClick={() => saveCapacity(prog.id)} style={{ padding: "10px 14px", borderRadius: 6, border: "none", background: "#511013", color: "white", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                        Guardar cambios
+                      </button>
+                      <button onClick={cancelEdit} style={{ padding: "10px 14px", borderRadius: 6, border: "1px solid #ddd", background: "white", color: "#555", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ marginBottom: 12 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#333", margin: "0 0 8px" }}>Prácticas ({prog.practicas.length} total)</p>

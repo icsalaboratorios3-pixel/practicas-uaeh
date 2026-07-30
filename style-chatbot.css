@@ -1,0 +1,223 @@
+.chatbot-root {
+  position: fixed;
+  right: 20px;
+  bottom: 22px;
+  z-index: 10002;
+  font-family: 'Helvetica', Arial, sans-serif;
+}
+
+.chatbot-toggle {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  background: #e3440f;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 18px 32px rgba(178, 62, 12, 0.621);
+  display: grid;
+  place-items: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 6px;
+}
+
+.chatbot-toggle-icon {
+  display: none;
+}
+
+.chatbot-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.chatbot-toggle:hover,
+.chatbot-toggle:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 30px rgba(0, 0, 0, 0.28);
+  outline: none;
+}
+
+.chatbot-panel {
+  width: min(360px, calc(100vw - 32px));
+  max-height: 560px;
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  animation: chatbotFadeIn 0.2s ease;
+}
+
+@keyframes chatbotFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chatbot-header {
+  padding: 18px 18px;
+  background: linear-gradient(180deg, #a11611 0%, #7d1d12 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chatbot-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.chatbot-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-top: 4px;
+}
+
+.chatbot-close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.18);
+  color: white;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.chatbot-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.chatbot-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  max-height: 280px;
+  padding-right: 4px;
+}
+
+.chatbot-message {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.chatbot-message.bot {
+  align-self: flex-start;
+}
+
+.chatbot-message.user {
+  align-self: flex-end;
+}
+
+.chatbot-message-text {
+  background: #fbede5;
+  color: #474926;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(126, 38, 16, 0.12);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.chatbot-message.user .chatbot-message-text {
+  background: #D97E15;
+  color: white;
+  border-color: rgba(15, 59, 114, 0.5);
+}
+
+.chatbot-message-time {
+  font-size: 11px;
+  color: #7f7f7f;
+  text-align: right;
+}
+
+.chatbot-quick-replies {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chatbot-quick-reply {
+  background: #f39b72;
+  border: 1px solid #e6a65e;
+  border-radius: 999px;
+  padding: 10px 12px;
+  color: #fffbfb;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.chatbot-quick-reply:hover,
+.chatbot-quick-reply:focus {
+  background: #c7770d;
+  outline: none;
+}
+
+.chatbot-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.chatbot-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #dfe4ee;
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+.chatbot-send {
+  border: none;
+  border-radius: 16px;
+  background: #671317;
+  color: white;
+  padding: 12px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chatbot-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chatbot-footer {
+  padding: 12px 0 8px;
+  font-size: 12px;
+  color: #4a4a4a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chatbot-contact {
+  color: #0f3b72;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+@media (max-width: 500px) {
+  .chatbot-root {
+    right: 12px;
+    bottom: 12px;
+  }
+  .chatbot-panel {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+}
