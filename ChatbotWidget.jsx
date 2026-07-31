@@ -1,15 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Fuse from "fuse.js";
 
-const STORAGE_KEY = "chatbotTelcelBotHistory";
+const STORAGE_KEY = "chatbotHistory";
 const SUPPORT_EMAIL = "ro475972@uaeh.edu.mx";
 const DEFAULT_INTENTS = [];
 
 const initialGuide = [
   "¿Cómo inicio sesión?",
   "¿Cómo valido una práctica?",
-
 ];
+
+// --- Palabras vacías que no aportan significado para el matching ---
+const STOPWORDS = new Set([
+  "como", "donde", "dónde", "que", "qué", "cual", "cuál", "es", "el", "la",
+  "los", "las", "un", "una", "de", "del", "mi", "mis", "tu", "tus", "su",
+  "sus", "yo", "puedo", "puede", "para", "por", "en", "y", "o", "a", "al",
+  "se", "con", "favor", "porfavor",
+]);
+
+function normalizar(texto) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // quita acentos
+    .replace(/[¿?¡!.,]/g, "") // quita signos de puntuación
+    .trim();
+}
+
+function tokenizar(texto) {
+  return normalizar(texto)
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !STOPWORDS.has(w));
+}
 
 function formatTime(date) {
   return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -27,11 +49,15 @@ export default function ChatbotWidget() {
   const fuse = useMemo(() => {
     if (!intents.length) return null;
     return new Fuse(intents, {
-      keys: ["patterns", "keywords"],
-      threshold: 0.35,
+      keys: [
+        { name: "patterns", weight: 0.4 },
+        { name: "keywords", weight: 0.6 },
+      ],
+      threshold: 0.45,
       ignoreLocation: true,
       minMatchCharLength: 2,
       includeScore: true,
+      useExtendedSearch: true,
     });
   }, [intents]);
 
@@ -82,9 +108,17 @@ export default function ChatbotWidget() {
       return `Lo siento, el chatbot aún no está listo. Escríbeme a ${supportEmail} para soporte directo.`;
     }
 
-    const search = fuse.search(query);
+    const tokens = tokenizar(query);
+
+    // Si no quedan tokens útiles (todo eran stopwords), usa la query completa
+    const extendedQuery = tokens.length
+      ? tokens.map((t) => `'${t}`).join(" | ") // "'token" = match exacto, "|" = OR
+      : query;
+
+    const search = fuse.search(extendedQuery);
     const best = search.length > 0 ? search[0] : null;
-    if (best && best.score <= 0.35) {
+
+    if (best && best.score <= 0.45) {
       const responses = best.item.responses || [];
       return responses.length > 0
         ? responses[Math.floor(Math.random() * responses.length)]
@@ -119,7 +153,11 @@ export default function ChatbotWidget() {
 
   const greeting = "¡Hola! Soy Heron, tu asistente del sistema. Puedo ayudarte con dudas sobre cómo usar la aplicación, tus programaciones y el menú de navegación.";
 
-  return (null);
+  const showQuickReplies = inputValue.trim() === "" && !messages.some((m) => m.type === "user");
+  const showGreeting = !messages.some((m) => m.type === "user");
+
+  // Render del componente ChatBotHeron
+  const ChatBotHeron = (
     <div className="chatbot-root">
       <button
         type="button"
@@ -141,18 +179,22 @@ export default function ChatbotWidget() {
           </div>
 
           <div className="chatbot-body">
-            <div className="chatbot-message bot">
-              <div className="chatbot-message-text">{greeting}</div>
-              <div className="chatbot-message-time">{formatTime(new Date())}</div>
-            </div>
+            {showGreeting && (
+              <div className="chatbot-message bot">
+                <div className="chatbot-message-text">{greeting}</div>
+                <div className="chatbot-message-time">{formatTime(new Date())}</div>
+              </div>
+            )}
 
-            <div className="chatbot-quick-replies">
-              {initialGuide.map((label) => (
-                <button key={label} type="button" className="chatbot-quick-reply" onClick={() => handleQuickReply(label)}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            {showQuickReplies && (
+              <div className="chatbot-quick-replies">
+                {initialGuide.map((label) => (
+                  <button key={label} type="button" className="chatbot-quick-reply" onClick={() => handleQuickReply(label)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="chatbot-message-list">
               {messages.map((message) => (
@@ -183,5 +225,10 @@ export default function ChatbotWidget() {
         </div>
       )}
     </div>
-  
+  );
+
+  // return para mostrar la sección de chatbot en el menú lateral
+  return (
+    <div>{null}</div>
+  );
 }

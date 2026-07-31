@@ -1031,49 +1031,92 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
 //Función para mostrar la sección de programaciones para el administrador del sistema-----------------------------
 function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, setProgramaciones, notify, practicasCatalogo = [], asignaturas = [] }) {
   const [filter, setFilter] = useState("");
+  const [programaFilter, setProgramaFilter] = useState("");
+  const [asignaturaFilter, setAsignaturaFilter] = useState("");
   const [selected, setSelected] = useState(null);
+
+  const visibleAsignaturas = asignaturaFilter
+    ? asignaturas
+    : programaFilter
+      ? asignaturas.filter(a => String(a.programaId ?? a.programa_id) === String(programaFilter))
+      : asignaturas;
 
   const filtered = programaciones.filter(p => {
     const prof = users.find(u => u.id === p.profesorId);
-    return !filter || [p.asignatura, p.periodo, prof?.name].join(" ").toLowerCase().includes(filter.toLowerCase());
+    const matchesTexto = !filter || [p.asignatura, p.periodo, prof?.name].join(" ").toLowerCase().includes(filter.toLowerCase());
+    const matchesPrograma = !programaFilter || String(p.programaId ?? p.programa_id) === String(programaFilter);
+    const matchesAsignatura = !asignaturaFilter || String(p.asignaturaId ?? p.asignatura_id) === String(asignaturaFilter);
+    return matchesTexto && matchesPrograma && matchesAsignatura;
   });
   const safePracticas = (p) => Array.isArray(p.practicas) ? p.practicas : [];
 
   return (
     <div>
       <SectionHeader title="Programaciones" subtitle={`${programaciones.length} programaciones registradas`} />
-      <div style={{ marginBottom: "1rem" }}>
-        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Buscar por asignatura, periodo, profesor..." style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", width: 340, fontSize: 14, outline: "none" }} />
+      <div style={{ marginBottom: "1rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        <select value={programaFilter} onChange={e => { setProgramaFilter(e.target.value); setAsignaturaFilter(""); }} style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, outline: "none" }}>
+          <option value="">Filtrar por Programa Educativo</option>
+          {programas.map(prog => (
+            <option key={prog.id} value={prog.id}>{prog.nombre}</option>
+          ))}
+        </select>
+        <select value={asignaturaFilter} onChange={e => setAsignaturaFilter(e.target.value)} style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, outline: "none" }}>
+          <option value="">Filtrar por Asignatura</option>
+          {asignaturas
+            .filter(a => !programaFilter || String(a.programaId ?? a.programa_id) === String(programaFilter))
+            .map(asig => (
+              <option key={asig.id} value={asig.id}>{asig.nombre}</option>
+            ))}
+        </select>
+        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Buscar por asignatura, periodo, profesor..." style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", width: "100%", fontSize: 14, outline: "none" }} />
       </div>
-      {selected ? (
-      <ProgramacionDetail prog={selected} users={users} laboratorios={laboratorios} programas={programas} onBack={() => setSelected(null)} setProgramaciones={setProgramaciones} programaciones={programaciones} notify={notify} readOnly practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {filtered.map(p => {
-            const prof = users.find(u => u.id === p.profesorId);
-            const lab = laboratorios.find(l => l.id === p.laboratorioId);
-            const practicas = Array.isArray(p.practicas) ? p.practicas : [];
-            return (
-              <Card key={p.id} style={{ cursor: "pointer", transition: "box-shadow 0.15s" }} onClick={() => setSelected({ ...p, practicas: practicas.map(pr => ({ ...pr })) })}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 4px", color: "#222" }}>{p.asignatura}</h3>
-                    <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px" }}>{p.periodo}  Grupo {p.grupo}  Semestre {p.semestre}</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      <span style={{ fontSize: 12, background: "#FFEEDD", color: "#E8641C", padding: "3px 10px", borderRadius: 20 }}>{prof?.name.split(" ").slice(-2).join(" ")}</span>
-                      <span style={{ fontSize: 12, background: "#FBE5E5", color: "#511013", padding: "3px 10px", borderRadius: 20 }}>{lab?.nombre}</span>
-                      <span style={{ fontSize: 12, background: "#FFF4E8", color: "#F39200", padding: "3px 10px", borderRadius: 20 }}>{p.dia} {p.horaInicio}{p.horaFin}</span>
-                      <span style={{ fontSize: 12, background: "#f5f5f5", color: "#555", padding: "3px 10px", borderRadius: 20 }}>{p.numAlumnos} alumnos</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: "#511013" }}>{practicas.length}</div>
-                    <div style={{ fontSize: 11, color: "#aaa" }}>prácticas</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {filtered.map(p => {
+          const prof = users.find(u => u.id === p.profesorId);
+          const lab = laboratorios.find(l => l.id === p.laboratorioId);
+          const practicas = Array.isArray(p.practicas) ? p.practicas : [];
+          return (
+            <Card key={p.id} style={{ cursor: "pointer", transition: "box-shadow 0.15s" }} onClick={() => setSelected({ ...p, practicas: practicas.map(pr => ({ ...pr })) })}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 4px", color: "#222" }}>{p.asignatura}</h3>
+                  <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px" }}>{p.periodo}  Grupo {p.grupo}  Semestre {p.semestre}</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <span style={{ fontSize: 12, background: "#FFEEDD", color: "#E8641C", padding: "3px 10px", borderRadius: 20 }}>{prof?.name.split(" ").slice(-2).join(" ")}</span>
+                    <span style={{ fontSize: 12, background: "#FBE5E5", color: "#511013", padding: "3px 10px", borderRadius: 20 }}>{lab?.nombre}</span>
+                    <span style={{ fontSize: 12, background: "#FFF4E8", color: "#F39200", padding: "3px 10px", borderRadius: 20 }}>{p.dia} {p.horaInicio}{p.horaFin}</span>
+                    <span style={{ fontSize: 12, background: "#f5f5f5", color: "#555", padding: "3px 10px", borderRadius: 20 }}>{p.numAlumnos} alumnos</span>
                   </div>
                 </div>
-              </Card>
-            );
-          })}
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "#511013" }}>{practicas.length}</div>
+                  <div style={{ fontSize: 11, color: "#aaa" }}>prácticas</div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {selected && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative" }}>
+            <button onClick={() => setSelected(null)} style={{ position: "absolute", top: 16, right: 16, border: "none", background: "transparent", color: "#444", fontSize: 24, cursor: "pointer" }} aria-label="Cerrar detalle">×</button>
+            <ProgramacionDetail
+              prog={selected}
+              users={users}
+              laboratorios={laboratorios}
+              programas={programas}
+              onBack={() => setSelected(null)}
+              setProgramaciones={setProgramaciones}
+              programaciones={programaciones}
+              notify={notify}
+              readOnly={false}
+              practicasCatalogo={practicasCatalogo}
+              asignaturas={asignaturas}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -1444,21 +1487,26 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
       <SectionHeader title="Laboratorios" subtitle={`${laboratorios.filter(l => l.activo).length} activos`}
         action={<button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar laboratorio</button>} />
       {showForm && (
-        <Card style={{ marginBottom: "1.5rem", border: "2px solid #511013" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Laboratorio</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre *</label>
-              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Ubicación</label>
-              <input value={form.ubicacion} onChange={e => setForm(p => ({ ...p, ubicacion: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Capacidad (alumnos)</label>
-              <input type="number" value={form.capacidad} onChange={e => setForm(p => ({ ...p, capacidad: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
-            <button onClick={() => setShowForm(false)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
-          </div>
-        </Card>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Card style={{ width: "100%", maxWidth: 560, border: "2px solid #511013", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Laboratorio</h3>
+              <button onClick={() => setShowForm(false)} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre *</label>
+                <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
+              <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Ubicación</label>
+                <input value={form.ubicacion} onChange={e => setForm(p => ({ ...p, ubicacion: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
+              <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Capacidad (alumnos)</label>
+                <input type="number" value={form.capacidad} onChange={e => setForm(p => ({ ...p, capacidad: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
+              <button onClick={() => setShowForm(false)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
+            </div>
+          </Card>
+        </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
         {laboratorios.filter(lab => lab.activo).slice().sort(sortAlpha("nombre")).map(lab => (
@@ -1597,14 +1645,19 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
       <SectionHeader title="Programas Educativos" subtitle="Gestión de los programas académicos"
         action={<button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar programa</button>} />
       {showForm && (
-        <Card style={{ marginBottom: "1.5rem", border: "2px solid #511013" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 15, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Programa Educativo</h3>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre del programa educativo" style={{ flex: 1, padding: "9px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }} />
-            <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
-            <button onClick={() => setShowForm(false)} style={{ padding: "9px 14px", background: "#f5f5f5", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
-          </div>
-        </Card>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Card style={{ width: "100%", maxWidth: 560, border: "2px solid #511013", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Programa Educativo</h3>
+              <button onClick={() => setShowForm(false)} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre del programa educativo" style={{ flex: 1, padding: "9px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }} />
+              <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
+              <button onClick={() => setShowForm(false)} style={{ padding: "9px 14px", background: "#f5f5f5", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
+            </div>
+          </Card>
+        </div>
       )}
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -1748,68 +1801,73 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
       <SectionHeader title="Gestión de Profesores" subtitle={`${profes.length} profesores registrados`}
         action={canModifyProfessors ? <button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar profesor</button> : null} />
       {showForm && (
-        <Card style={{ marginBottom: "1.5rem", border: "2px solid #511013" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Profesor</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Usuario *</label>
-              <input value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))} placeholder="usuario.profesor"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Card style={{ width: "100%", maxWidth: 760, border: "2px solid #511013", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Profesor</h3>
+              <button onClick={() => { setShowForm(false); setShowAsignaturasDropdown(false); }} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Correo electrónico</label>
-              <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="profesor@uaeh.edu.mx"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Usuario *</label>
+                <input value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))} placeholder="usuario.profesor"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Correo electrónico</label>
+                <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="profesor@uaeh.edu.mx"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre completo *</label>
+                <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="MC Ana López García"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Contraseña {editing ? "(dejar vacío para no cambiar)" : "*"}</label>
+                <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Contraseña"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={form.active} onChange={e => setForm(p => ({ ...p, active: e.target.checked }))} />
+                <label style={{ fontSize: 13, color: "#333" }}>Activo</label>
+              </div>
+              <div style={{ position: "relative" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Asignaturas que imparte</label>
+                <button type="button" onClick={() => setShowAsignaturasDropdown(prev => !prev)}
+                  style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #ddd", background: "white", fontSize: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{form.asignaturasIds.length > 0 ? asignaturas.filter(a => form.asignaturasIds.includes(a.id)).map(a => a.nombre).join(", ") : "Selecciona una o varias asignaturas"}</span>
+                  <span style={{ fontSize: 12, color: "#666" }}>{showAsignaturasDropdown ? "▲" : "▼"}</span>
+                </button>
+                {showAsignaturasDropdown && (
+                  <div style={{ position: "absolute", top: 64, left: 0, width: "100%", maxHeight: 220, overflowY: "auto", background: "white", border: "1px solid #ddd", borderRadius: 8, boxShadow: "0 12px 25px rgba(0,0,0,0.08)", zIndex: 10 }}>
+                    {asignaturas
+                      .filter(a => a.activo)
+                      .slice()
+                      .sort(sortAlpha("nombre"))
+                      .map(a => (
+                      <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid #f4f4f4" }}>
+                        <input type="checkbox" checked={form.asignaturasIds.includes(a.id)}
+                          onChange={() => {
+                            const selected = form.asignaturasIds.includes(a.id)
+                              ? form.asignaturasIds.filter(id => id !== a.id)
+                              : [...form.asignaturasIds, a.id];
+                            setForm(p => ({ ...p, asignaturasIds: selected }));
+                          }}
+                          style={{ cursor: "pointer" }} />
+                        <span style={{ fontSize: 14, color: "#333" }}>{a.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre completo *</label>
-              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="MC Ana López García"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
+              <button onClick={() => { setShowForm(false); setShowAsignaturasDropdown(false); }} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Contraseña {editing ? "(dejar vacío para no cambiar)" : "*"}</label>
-              <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Contraseña"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={form.active} onChange={e => setForm(p => ({ ...p, active: e.target.checked }))} />
-              <label style={{ fontSize: 13, color: "#333" }}>Activo</label>
-            </div>
-            <div style={{ position: "relative" }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Asignaturas que imparte</label>
-              <button type="button" onClick={() => setShowAsignaturasDropdown(prev => !prev)}
-                style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #ddd", background: "white", fontSize: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>{form.asignaturasIds.length > 0 ? asignaturas.filter(a => form.asignaturasIds.includes(a.id)).map(a => a.nombre).join(", ") : "Selecciona una o varias asignaturas"}</span>
-                <span style={{ fontSize: 12, color: "#666" }}>{showAsignaturasDropdown ? "▲" : "▼"}</span>
-              </button>
-              {showAsignaturasDropdown && (
-                <div style={{ position: "absolute", top: 64, left: 0, width: "100%", maxHeight: 220, overflowY: "auto", background: "white", border: "1px solid #ddd", borderRadius: 8, boxShadow: "0 12px 25px rgba(0,0,0,0.08)", zIndex: 10 }}>
-                  {asignaturas
-                    .filter(a => a.activo)
-                    .slice()
-                    .sort(sortAlpha("nombre"))
-                    .map(a => (
-                    <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid #f4f4f4" }}>
-                      <input type="checkbox" checked={form.asignaturasIds.includes(a.id)}
-                        onChange={() => {
-                          const selected = form.asignaturasIds.includes(a.id)
-                            ? form.asignaturasIds.filter(id => id !== a.id)
-                            : [...form.asignaturasIds, a.id];
-                          setForm(p => ({ ...p, asignaturasIds: selected }));
-                        }}
-                        style={{ cursor: "pointer" }} />
-                      <span style={{ fontSize: 14, color: "#333" }}>{a.nombre}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
-            <button onClick={() => { setShowForm(false); setShowAsignaturasDropdown(false); }} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -1846,11 +1904,16 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
 function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [programaFilter, setProgramaFilter] = useState("");
   const emptyForm = { nombre: "", programaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
   const visibleAsignaturas = asignaturas
     .slice()
     .sort(sortAlpha("nombre"));
+  const filteredAsignaturas = visibleAsignaturas.filter(a => {
+    const programaKey = String(a.programaId ?? a.programa_id ?? "");
+    return !programaFilter || programaKey === String(programaFilter);
+  });
 
   const canDeleteAsignatura = (a) => true;
   const canModifyAsignatura = (a) => true;
@@ -1897,29 +1960,46 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
 
   return (
     <div>
-      <SectionHeader title="Gestión de Asignaturas" subtitle={`${visibleAsignaturas.filter(a => a.activo).length} asignaturas activas`}
+      <SectionHeader title="Gestión de Asignaturas" subtitle={`${filteredAsignaturas.filter(a => a.activo).length} asignaturas activas`}
         action={<button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar asignatura</button>} />
+      <div style={{ marginBottom: "1rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        <select
+          value={programaFilter}
+          onChange={e => setProgramaFilter(e.target.value)}
+          style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, outline: "none" }}
+        >
+          <option value="">Filtrar por Programa Educativo</option>
+          {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => (
+            <option key={p.id} value={p.id}>{p.nombre}</option>
+          ))}
+        </select>
+      </div>
       {showForm && (
-        <Card style={{ marginBottom: "1.5rem", border: "2px solid #511013" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nueva"} Asignatura</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre *</label>
-              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ width: "100%", maxWidth: 680, background: "white", borderRadius: 18, boxShadow: "0 30px 80px rgba(0,0,0,0.18)", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{editing ? "Editar" : "Nueva"} Asignatura</h3>
+              <button onClick={() => setShowForm(false)} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa *</label>
-              <select value={form.programaId} onChange={e => setForm(p => ({ ...p, programaId: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
-                <option value="">Seleccionar programa...</option>
-                {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre *</label>
+                <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa *</label>
+                <select value={form.programaId} onChange={e => setForm(p => ({ ...p, programaId: e.target.value }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1.5px solid #ddd", fontSize: 14 }}>
+                  <option value="">Seleccionar programa...</option>
+                  {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
+              <button onClick={() => setShowForm(false)} style={{ padding: "10px 18px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 10, cursor: "pointer" }}>Cancelar</button>
+              <button onClick={save} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700 }}>Guardar</button>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
-            <button onClick={() => setShowForm(false)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
-          </div>
-        </Card>
+        </div>
       )}
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -1929,7 +2009,7 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
             </tr>
           </thead>
           <tbody>
-            {visibleAsignaturas.map(a => {
+            {filteredAsignaturas.map(a => {
               const programaIdValue = a.programaId ?? a.programa_id;
               const programa = programas.find(p => p.id === Number(programaIdValue));
               return (
@@ -1957,6 +2037,9 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
 function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, programas, asignaturas, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [filter, setFilter] = useState("");
+  const [programaFilter, setProgramaFilter] = useState("");
+  const [asignaturaFilter, setAsignaturaFilter] = useState("");
   const emptyForm = { nombre: "", programaId: "", asignaturaId: "", activo: true };
   const [form, setForm] = useState(emptyForm);
   const visiblePracticas = (currentUser.role === "laboratorio"
@@ -1974,6 +2057,15 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
       if (cmpAsignatura !== 0) return cmpAsignatura;
       return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base", numeric: true });
     });
+  const filteredPracticas = visiblePracticas.filter(p => {
+    const programaKey = String(p.programaId ?? p.programa_id);
+    const asignaturaKey = String(p.asignaturaId ?? p.asignatura_id);
+    const programaMatches = !programaFilter || programaKey === String(programaFilter);
+    const asignaturaMatches = !asignaturaFilter || asignaturaKey === String(asignaturaFilter);
+    const searchText = [p.nombre, programas.find(pg => pg.id === parseInt(p.programaId, 10))?.nombre, asignaturas.find(a => a.id === parseInt(p.asignaturaId, 10))?.nombre].join(" ").toLowerCase();
+    const textMatches = !filter || searchText.includes(filter.toLowerCase());
+    return programaMatches && asignaturaMatches && textMatches;
+  });
 
   const canModifyPractica = (p) => true;
   const asignaturasPorPrograma = (form.programaId
@@ -2032,37 +2124,36 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
 
   return (
     <div>
-      <SectionHeader title="Gestión de Prácticas" subtitle={`${visiblePracticas.filter(p => p.activo).length} prácticas activas`}
+      <SectionHeader title="Gestión de Prácticas" subtitle={`${filteredPracticas.filter(p => p.activo).length} prácticas activas`}
         action={<button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar práctica</button>} />
-      {showForm && (
-        <Card style={{ marginBottom: "1.5rem", border: "2px solid #511013" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nueva"} Práctica</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre *</label>
-              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa *</label>
-              <select value={form.programaId} onChange={e => setForm(p => ({ ...p, programaId: parseInt(e.target.value, 10) || "", asignaturaId: "" }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
-                <option value="">Seleccionar programa...</option>
-                {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Asignatura *</label>
-              <select value={form.asignaturaId} onChange={e => setForm(p => ({ ...p, asignaturaId: parseInt(e.target.value, 10) || "" }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
-                <option value="">Seleccionar asignatura...</option>
-                {asignaturasPorPrograma.filter(a => a.activo).map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
-            <button onClick={() => setShowForm(false)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
-          </div>
-        </Card>
-      )}
+      <div style={{ marginBottom: "1rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        <select
+          value={programaFilter}
+          onChange={e => { setProgramaFilter(e.target.value); setAsignaturaFilter(""); }}
+          style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, outline: "none" }}
+        >
+          <option value="">Filtrar por Programa Educativo</option>
+          {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => (
+            <option key={p.id} value={p.id}>{p.nombre}</option>
+          ))}
+        </select>
+        <select
+          value={asignaturaFilter}
+          onChange={e => setAsignaturaFilter(e.target.value)}
+          style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, outline: "none" }}
+        >
+          <option value="">Filtrar por Asignatura</option>
+          {asignaturas.filter(a => !programaFilter || String(a.programaId ?? a.programa_id) === String(programaFilter)).sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" })).map(a => (
+            <option key={a.id} value={a.id}>{a.nombre}</option>
+          ))}
+        </select>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Buscar por práctica, programa o asignatura..."
+          style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", width: "100%", fontSize: 14, outline: "none" }}
+        />
+      </div>
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
@@ -2071,7 +2162,7 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
             </tr>
           </thead>
           <tbody>
-            {visiblePracticas.map(p => {
+            {filteredPracticas.map(p => {
               const programa = programas.find(pg => pg.id === parseInt(p.programaId, 10));
               const asignatura = asignaturas.find(a => a.id === parseInt(p.asignaturaId, 10));
               return (
@@ -2092,6 +2183,40 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
           </tbody>
         </table>
       </Card>
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ width: "100%", maxWidth: 720, background: "white", borderRadius: 18, boxShadow: "0 30px 80px rgba(0,0,0,0.18)", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{editing ? "Editar" : "Nueva"} Práctica</h3>
+              <button onClick={() => setShowForm(false)} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Nombre *</label>
+                <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Programa *</label>
+                <select value={form.programaId} onChange={e => setForm(p => ({ ...p, programaId: parseInt(e.target.value, 10) || "", asignaturaId: "" }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1.5px solid #ddd", fontSize: 14 }}>
+                  <option value="">Seleccionar programa...</option>
+                  {programas.filter(p => p.activo).slice().sort(sortAlpha("nombre")).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Asignatura *</label>
+                <select value={form.asignaturaId} onChange={e => setForm(p => ({ ...p, asignaturaId: parseInt(e.target.value, 10) || "" }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1.5px solid #ddd", fontSize: 14 }}>
+                  <option value="">Seleccionar asignatura...</option>
+                  {asignaturasPorPrograma.filter(a => a.activo).map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
+              <button onClick={() => setShowForm(false)} style={{ padding: "10px 18px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 10, cursor: "pointer" }}>Cancelar</button>
+              <button onClick={save} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700 }}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2132,26 +2257,31 @@ function UsuariosAdmin({ users, setUsers, notify }) {
       <SectionHeader title="Gestión de Usuarios" subtitle={`${users.filter(u => u.active).length} usuarios activos`}
         action={<button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar usuario</button>} />
       {showForm && (
-        <Card style={{ marginBottom: "1.5rem", border: "2px solid #511013" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Usuario</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {[["Nombre completo *", "name", "text", "MC Ana López García"],["Usuario *", "username", "text", "ana.lopez"],["Correo electrónico", "email", "email", "ana@uaeh.edu.mx"],["Contraseña", "password", "password", editing ? "(sin cambios)" : ""]].map(([lbl, key, type, ph]) => (
-              <div key={key}><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{lbl}</label>
-                <input type={type} value={form[key]} placeholder={ph} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
-            ))}
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Rol *</label>
-              <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
-                <option value="admin">Administrador</option>
-                <option value="profesor">Profesor</option>
-                <option value="laboratorio">Responsable de Laboratorio</option>
-              </select>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Card style={{ width: "100%", maxWidth: 640, border: "2px solid #511013", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editing ? "Editar" : "Nuevo"} Usuario</h3>
+              <button onClick={() => setShowForm(false)} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
             </div>
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
-            <button onClick={() => setShowForm(false)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
-          </div>
-        </Card>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {[["Nombre completo *", "name", "text", "MC Ana López García"],["Usuario *", "username", "text", "ana.lopez"],["Correo electrónico", "email", "email", "ana@uaeh.edu.mx"],["Contraseña", "password", "password", editing ? "(sin cambios)" : ""]].map(([lbl, key, type, ph]) => (
+                <div key={key}><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{lbl}</label>
+                  <input type={type} value={form[key]} placeholder={ph} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }} /></div>
+              ))}
+              <div><label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Rol *</label>
+                <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14 }}>
+                  <option value="admin">Administrador</option>
+                  <option value="profesor">Profesor</option>
+                  <option value="laboratorio">Responsable de Laboratorio</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={save} style={{ padding: "9px 20px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}> Guardar</button>
+              <button onClick={() => setShowForm(false)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}>Cancelar</button>
+            </div>
+          </Card>
+        </div>
       )}
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

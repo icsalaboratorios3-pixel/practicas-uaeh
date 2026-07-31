@@ -2,6 +2,47 @@
   "support_email": "ro475972@uaeh.edu.mx",
   "intents": [
     {
+      "id": "saludo",
+      "patterns": [
+        "hola",
+        "buenos días",
+        "buenas tardes",
+        "buenas noches",
+        "qué tal"
+      ],
+      "keywords": ["hola", "saludo", "buenos días", "buenas tardes", "buenas noches"],
+      "responses": [
+        "¡Hola! Soy el chatbot de la aplicación de prácticas. Puedo ayudarte con preguntas frecuentes sobre programaciones, validación de prácticas, disponibilidad de laboratorios y más. ¿En qué puedo ayudarte hoy?"
+      ]
+    },
+    {
+      "id": "despedida",
+      "patterns": [
+        "adiós",
+        "hasta luego",
+        "nos vemos",
+        "gracias"
+      ],
+      "keywords": ["adiós", "despedida", "hasta luego", "nos vemos", "gracias"],
+      "responses": [
+        "¡Hasta luego! Si tienes más preguntas, no dudes en volver. ¡Que tengas un buen día!"
+      ]
+    },
+    {
+      "id": "ayuda_general",
+      "patterns": [
+        "necesito ayuda",
+        "no sé qué hacer",
+        "cómo funciona esto",
+        "ayuda"
+      ],
+      "keywords": ["ayuda", "soporte", "instrucciones", "guía"],
+      "responses": [
+        "Puedo ayudarte con preguntas frecuentes sobre la aplicación: inicio de sesión, programaciones, validación de prácticas, disponibilidad de laboratorios y guía de uso. ¿Sobre qué tema necesitas ayuda?"
+      ]
+    },
+
+    {
       "id": "inicio_sesion",
       "patterns": [
         "¿cómo inicio sesión?",
@@ -16,6 +57,19 @@
       ]
     },
     {
+      "id": "chatbot_capacidades",
+      "patterns": [
+        "¿qué puede hacer este chatbot?",
+        "qué sabes hacer",
+        "para qué sirve el bot",
+        "qué hace el chatbot"
+      ],
+      "keywords": ["chatbot", "capacidad", "funciona", "qué hace"],
+      "responses": [
+        "Este chatbot responde preguntas frecuentes sobre la aplicación: inicio de sesión, programaciones, validación de prácticas, disponibilidad de laboratorios, y guía de uso. También indica dónde se guardan los datos y cómo editar programaciones si tienes permisos."
+      ]
+    },
+    {
       "id": "programaciones",
       "patterns": [
         "¿dónde veo mis programaciones?",
@@ -26,7 +80,7 @@
       ],
       "keywords": ["programaciones", "mirar", "ver", "lista", "horario"],
       "responses": [
-        "Tus programaciones se encuentran en el menú lateral bajo 'Mis Programaciones' o 'Programaciones' según tu rol. Si no aparece, revisa que estés en el rol correcto y has iniciado sesión." 
+        "Tus programaciones se encuentran en el menú lateral bajo 'Mis Programaciones' o 'Programaciones' según tu rol. Si no aparece, revisa que estés en el rol correcto y que has iniciado sesión."
       ]
     },
     {
@@ -40,7 +94,7 @@
       ],
       "keywords": ["validar", "práctica", "pendiente", "aprobar"],
       "responses": [
-        "Para validar una práctica ve a tu sección de programaciones y busca la opción de validar. Si eres responsable de laboratorio, las programaciones pendientes aparecen en tu panel y puedes confirmarlas desde ahí."
+        "Para validar una práctica ve a la sección de programaciones y busca la opción de validar. Si eres responsable de laboratorio, las programaciones pendientes aparecen en tu panel y puedes confirmarlas desde ahí."
       ]
     },
     {
@@ -58,26 +112,120 @@
       ]
     },
     {
-      "id": "usuario_contraseña",
+      "id": "roles_y_permisos",
       "patterns": [
-        "como cambio mi contraseña",
-        "cambiar contraseña",
-        "resetear contraseña",
-        "olvidé mi contraseña",
-        "actualizar contraseña"
+        "¿qué roles existen?",
+        "quién puede editar",
+        "permisos",
+        "responsable de laboratorio qué puede hacer"
       ],
-      "keywords": ["contraseña", "clave", "cambiar", "resetear", "olvidé"],
+      "keywords": ["roles", "permisos", "responsable", "docente", "alumno"],
       "responses": [
-        "Para cambiar tu contraseña ve a 'Mi perfil' y usa el formulario de cambio. Si no puedes cambiarla, escribe a soporte: ro475972@uaeh.edu.mx"
+        "Los roles principales son: docente, responsable de laboratorio y administrador. Los responsables pueden validar, editar capacidad y borrar programaciones del calendario; los docentes y alumnos ven sus programaciones y pueden marcar asistencia cuando corresponda."
       ]
     },
     {
-      "id": "contacto_soporte",
+      "id": "editar_capacidad",
       "patterns": [
-        "soporte", "ayuda", "contacto", "mi problema", "reportar error"],
-      "keywords": ["soporte", "ayuda", "contacto", "error", "problema"],
+        "¿cómo editar la capacidad?",
+        "cambiar numAlumnos",
+        "editar capacidad del laboratorio",
+        "numEquipos editar"
+      ],
+      "keywords": ["capacidad", "numAlumnos", "numEquipos", "editar"],
       "responses": [
-        "Si necesitas ayuda directa escríbeme a ro475972@uaeh.edu.mx y te responderé lo antes posible." 
+        "Si tienes permisos de responsable, en la tarjeta del calendario puedes hacer clic en 'Editar' y cambiar 'numAlumnos' o 'numEquipos'. Guarda para que los cambios queden persistidos en la base de datos." 
+      ]
+    },
+    {
+      "id": "borrar_programacion",
+      "patterns": [
+        "¿cómo borro una programación?",
+        "borrar práctica",
+        "eliminar programación calendario",
+        "quitar reserva"
+      ],
+      "keywords": ["borrar", "eliminar", "programación", "calendario"],
+      "responses": [
+        "Solo los responsables y administradores pueden borrar programaciones. Usa el botón 'Borrar' en la tarjeta del calendario y confirma en el diálogo. Si no ves la opción, contacta al administrador."
+      ]
+    },
+    {
+      "id": "pase_de_lista",
+      "patterns": [
+        "¿cómo tomar asistencia?",
+        "marcar asistencia",
+        "pase de lista",
+        "registrar alumnos"
+      ],
+      "keywords": ["asistencia", "pase lista", "marcar", "alumnos"],
+      "responses": [
+        "En la sección 'Pase de lista' selecciona la programación correspondiente y marca los alumnos presentes. El sistema guarda el registro asociado a la práctica y la sesión." 
+      ]
+    },
+    {
+      "id": "orden_practicas_hoy",
+      "patterns": [
+        "¿por qué el orden de prácticas no es correcto?",
+        "prácticas de hoy orden",
+        "ordenar prácticas hoy",
+        "prácticas ordenadas"
+      ],
+      "keywords": ["orden", "hoy", "prácticas", "fecha"],
+      "responses": [
+        "Las prácticas se ordenan por fecha y hora. Si observas discrepancias, el sistema toma la lista filtrada por laboratorio y luego ordena las prácticas internamente. Si un elemento falta, puede ser por filtros activos o datos faltantes." 
+      ]
+    },
+    {
+      "id": "calendario_uso",
+      "patterns": [
+        "¿cómo uso el calendario?",
+        "añadir al calendario",
+        "editar evento calendario",
+        "ver calendario"
+      ],
+      "keywords": ["calendario", "evento", "editar", "añadir"],
+      "responses": [
+        "El calendario muestra programaciones por día. Haz clic en una tarjeta para ver detalles, editar capacidad o borrar (si tienes permisos). Para crear nuevas programaciones utiliza el formulario 'Nueva Programación' disponible según tu rol." 
+      ]
+    },
+    {
+      "id": "supabase_y_datos",
+      "patterns": [
+        "¿dónde se guardan los datos?",
+        "¿usa supabase?",
+        "privacidad datos",
+        "base de datos dónde está"
+      ],
+      "keywords": ["supabase", "base de datos", "datos", "privacidad"],
+      "responses": [
+        "Los datos se guardan en Supabase (una base de datos Postgres gestionada). Información sensible debe ser manejada según políticas institucionales; para dudas de privacidad contacta a soporte: ro475972@uaeh.edu.mx." 
+      ]
+    },
+ 
+    {
+      "id": "reportar_error",
+      "patterns": [
+        "hay un error",
+        "la app falla",
+        "bug",
+        "reportar bug"
+      ],
+      "keywords": ["error", "bug", "falla", "crash"],
+      "responses": [
+        "Si encuentras un error, describe los pasos para reproducirlo y envía la información a ro475972@uaeh.edu.mx. Incluye capturas de pantalla y mensajes de consola si es posible." 
+      ]
+    },
+    {
+      "id": "diferencia_numAlumnos_numEquipos",
+      "patterns": [
+        "¿qué es numAlumnos?",
+        "numEquipos para qué sirve",
+        "diferencia numAlumnos numEquipos"
+      ],
+      "keywords": ["numAlumnos", "numEquipos", "capacidad", "equipos"],
+      "responses": [
+        "'numAlumnos' indica la capacidad en número de personas; 'numEquipos' indica la cantidad de estaciones o equipos disponibles. Algunas prácticas se planifican por alumno y otras por equipo, por eso existen ambos campos."
       ]
     }
   ]
