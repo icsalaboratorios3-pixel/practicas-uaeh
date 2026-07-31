@@ -1530,7 +1530,7 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => openEdit(lab)} style={{ flex: 1, padding: "7px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Editar</button>
               <button onClick={() => setShowResponsablesModal(lab.id)} style={{ flex: 1, padding: "7px", border: "1px solid #F39200", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#F39200" }}>Responsables</button>
-              <button onClick={() => removeLab(lab.id)} style={{ flex: 1, padding: "7px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#c0392b" }}>Quitar</button>
+              <button onClick={() => { if (window.confirm("¿Seguro que desea quitar este laboratorio? Esta acción no se puede deshacer.")) removeLab(lab.id); }} style={{ flex: 1, padding: "7px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#c0392b" }}>Quitar</button>
             </div>
           </Card>
         ))}
@@ -1568,23 +1568,28 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
       </Card>
 
       {showResponsablesModal && (
-        <Card style={{ marginTop: "2rem", border: "2px solid #F39200" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>Asignar Responsables a {laboratorios.find(l => l.id === showResponsablesModal)?.nombre}</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {users.filter(u => u.role === "laboratorio" && u.active).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" })).map(resp => {
-              const isAssigned = responsableLaboratorios.some(rl => rl.laboratorioId === showResponsablesModal && rl.responsableId === resp.id);
-              return (
-                <label key={resp.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px", borderRadius: 6, border: "1px solid #eee" }}>
-                  <input type="checkbox" checked={isAssigned} onChange={() => toggleResponsable(showResponsablesModal, resp.id)} style={{ cursor: "pointer" }} />
-                  <span style={{ fontSize: 13, color: "#333" }}>{resp.name}</span>
-                </label>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={() => setShowResponsablesModal(null)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Cerrar</button>
-          </div>
-        </Card>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Card style={{ width: "100%", maxWidth: 760, border: "2px solid #F39200", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Asignar Responsables a {laboratorios.find(l => l.id === showResponsablesModal)?.nombre}</h3>
+              <button onClick={() => setShowResponsablesModal(null)} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {users.filter(u => u.role === "laboratorio" && u.active).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" })).map(resp => {
+                const isAssigned = responsableLaboratorios.some(rl => rl.laboratorioId === showResponsablesModal && rl.responsableId === resp.id);
+                return (
+                  <label key={resp.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 12px", borderRadius: 8, border: "1px solid #eee", background: "#fff" }}>
+                    <input type="checkbox" checked={isAssigned} onChange={() => toggleResponsable(showResponsablesModal, resp.id)} style={{ cursor: "pointer" }} />
+                    <span style={{ fontSize: 14, color: "#333" }}>{resp.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button onClick={() => setShowResponsablesModal(null)} style={{ padding: "10px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Cerrar</button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );
@@ -1693,7 +1698,7 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
                   <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                     <button onClick={() => openEdit(p)} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Editar</button>
                     <button onClick={() => setShowLabsModal(p.id)} style={{ padding: "5px 12px", border: "1px solid #F39200", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#F39200" }}>Labs</button>
-                    <button onClick={() => removeProg(p.id)} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#c0392b" }}>Quitar</button>
+                    <button onClick={() => { if (window.confirm("¿Seguro que desea quitar este programa educativo? Esta acción no se puede deshacer.")) removeProg(p.id); }} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#c0392b" }}>Quitar</button>
                   </div>
                 </td>
               </tr>
@@ -1734,23 +1739,28 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
       </Card>
 
       {showLabsModal && (
-        <Card style={{ marginTop: "2rem", border: "2px solid #F39200" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: 16, fontWeight: 700 }}>Asignar Laboratorios a {programas.find(p => p.id === showLabsModal)?.nombre}</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {laboratorios.filter(l => l.activo).map(lab => {
-              const isAssigned = programaLaboratorios.some(pl => pl.programaId === showLabsModal && pl.laboratorioId === lab.id);
-              return (
-                <label key={lab.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px", borderRadius: 6, border: "1px solid #eee" }}>
-                  <input type="checkbox" checked={isAssigned} onChange={() => toggleLaboratorio(showLabsModal, lab.id)} style={{ cursor: "pointer" }} />
-                  <span style={{ fontSize: 13, color: "#333" }}>{lab.nombre}</span>
-                </label>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={() => setShowLabsModal(null)} style={{ padding: "9px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Cerrar</button>
-          </div>
-        </Card>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Card style={{ width: "100%", maxWidth: 760, border: "2px solid #F39200", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Asignar Laboratorios a {programas.find(p => p.id === showLabsModal)?.nombre}</h3>
+              <button onClick={() => setShowLabsModal(null)} style={{ border: "none", background: "transparent", fontSize: 24, color: "#444", cursor: "pointer", lineHeight: 1 }} aria-label="Cerrar ventana">×</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {laboratorios.filter(l => l.activo).map(lab => {
+                const isAssigned = programaLaboratorios.some(pl => pl.programaId === showLabsModal && pl.laboratorioId === lab.id);
+                return (
+                  <label key={lab.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 12px", borderRadius: 8, border: "1px solid #eee", background: "#fff" }}>
+                    <input type="checkbox" checked={isAssigned} onChange={() => toggleLaboratorio(showLabsModal, lab.id)} style={{ cursor: "pointer" }} />
+                    <span style={{ fontSize: 14, color: "#333" }}>{lab.nombre}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button onClick={() => setShowLabsModal(null)} style={{ padding: "10px 20px", background: "#f5f5f5", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Cerrar</button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );
@@ -1758,8 +1768,18 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
 
 // Función para mostrar la sección de profesores para el administrador del sistema-----------------------------
 function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) {
+  const [searchTerm, setSearchTerm] = useState("");
   const profes = users
     .filter(u => u.role === "profesor")
+    .filter(u => {
+      const term = searchTerm.trim().toLowerCase();
+      if (!term) return true;
+      const asignaturasNombres = (u.asignaturasIds || []).map(id => asignaturas.find(a => a.id === id)?.nombre || "").join(" ");
+      return [u.name, u.username, u.email, asignaturasNombres]
+        .join(" ")
+        .toLowerCase()
+        .includes(term);
+    })
     .slice()
     .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" }));
   const [showForm, setShowForm] = useState(false);
@@ -1800,6 +1820,15 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
     <div>
       <SectionHeader title="Gestión de Profesores" subtitle={`${profes.length} profesores registrados`}
         action={canModifyProfessors ? <button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar profesor</button> : null} />
+      <div style={{ margin: "16px 0 24px", display: "flex", alignItems: "center", gap: 12 }}>
+        <input
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Buscar profesores, asignaturas o correo"
+          style={{ width: "100%", maxWidth: 420, padding: "10px 14px", borderRadius: 10, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }}
+        />
+        {searchTerm && <button onClick={() => setSearchTerm("")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Limpiar</button>}
+      </div>
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <Card style={{ width: "100%", maxWidth: 760, border: "2px solid #511013", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
@@ -1887,7 +1916,7 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
                   <td style={{ padding: "10px 10px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       {canModifyProfessors && <button onClick={() => openEdit(u)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Editar</button>}
-                      {canModifyProfessors && <button onClick={() => removeUser(u.id)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
+                      {canModifyProfessors && <button onClick={() => { if (window.confirm("¿Seguro que desea quitar este profesor? Esta acción no se puede deshacer.")) removeUser(u.id); }} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
                     </div>
                   </td>
                 </tr>
@@ -2020,7 +2049,7 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
                   <td style={{ padding: "10px 10px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       {canModifyAsignatura(a) && <button onClick={() => openEdit(a)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Editar</button>}
-                      {canDeleteAsignatura(a) && <button onClick={() => removeAsignatura(a.id)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
+                      {canDeleteAsignatura(a) && <button onClick={() => { if (window.confirm("¿Seguro que desea quitar esta asignatura? Esta acción no se puede deshacer.")) removeAsignatura(a.id); }} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
                     </div>
                   </td>
                 </tr>
@@ -2174,7 +2203,7 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
                   <td style={{ padding: "10px 10px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       {canModifyPractica(p) && <button onClick={() => openEdit(p)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Editar</button>}
-                      {canModifyPractica(p) && <button onClick={() => removePractica(p.id)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
+                      {canModifyPractica(p) && <button onClick={() => { if (window.confirm("¿Seguro que desea quitar esta práctica? Esta acción no se puede deshacer.")) removePractica(p.id); }} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>}
                     </div>
                   </td>
                 </tr>
@@ -2225,6 +2254,7 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
 function UsuariosAdmin({ users, setUsers, notify }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const emptyForm = { name: "", username: "", email: "", password: "", role: "profesor", active: true };
   const [form, setForm] = useState(emptyForm);
 
@@ -2252,10 +2282,29 @@ function UsuariosAdmin({ users, setUsers, notify }) {
     notify(error ? "Usuario eliminado localmente, no eliminado en BD" : "Usuario eliminado"); 
   };
 
+  const filteredUsers = users.filter(u => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return [u.name, u.username, u.email, u.role]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(term);
+  });
+
   return (
     <div>
       <SectionHeader title="Gestión de Usuarios" subtitle={`${users.filter(u => u.active).length} usuarios activos`}
         action={<button onClick={openAdd} style={{ padding: "10px 18px", background: "#511013", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Agregar usuario</button>} />
+      <div style={{ margin: "16px 0 24px", display: "flex", alignItems: "center", gap: 12 }}>
+        <input
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Buscar usuarios, nombre, correo o rol"
+          style={{ width: "100%", maxWidth: 420, padding: "10px 14px", borderRadius: 10, border: "1.5px solid #ddd", fontSize: 14, boxSizing: "border-box" }}
+        />
+        {searchTerm && <button onClick={() => setSearchTerm("")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Limpiar</button>}
+      </div>
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <Card style={{ width: "100%", maxWidth: 640, border: "2px solid #511013", position: "relative", padding: 24, maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
@@ -2291,7 +2340,7 @@ function UsuariosAdmin({ users, setUsers, notify }) {
             </tr>
           </thead>
           <tbody>
-            {users.map(u => {
+            {filteredUsers.map(u => {
               const rc2 = colors[u.role];
               return (
                 <tr key={u.id} style={{ borderBottom: "1px solid #f5f5f5", opacity: u.active ? 1 : 0.55 }}>
@@ -2313,7 +2362,7 @@ function UsuariosAdmin({ users, setUsers, notify }) {
                   <td style={{ padding: "10px 10px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => openEdit(u)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Editar</button>
-                      <button onClick={() => removeUser(u.id)} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>
+                      <button onClick={() => { if (window.confirm("¿Seguro que desea quitar este usuario? Esta acción no se puede deshacer.")) removeUser(u.id); }} style={{ padding: "4px 10px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#c0392b" }}>Quitar</button>
                     </div>
                   </td>
                 </tr>
@@ -2345,7 +2394,9 @@ function detectConflictos(programaciones, laboratorios) {
 //Función para mostrar la sección de conflictos de horario para el administrador del sistema-----------------------------
 function ConflictosSection({ programaciones, laboratorios, users, currentUser, responsableLaboratorios }) {
   const [selectedLab, setSelectedLab] = useState(null);
-  const todos = detectConflictos(programaciones, laboratorios);
+  const NUTRICION_PROGRAMA_ID = 4;
+  const programacionesNutricion = programaciones.filter(p => Number(p.programaId ?? p.programa_id) === NUTRICION_PROGRAMA_ID);
+  const todos = detectConflictos(programacionesNutricion, laboratorios);
   const misLabs = currentUser.role === "laboratorio"
     ? responsableLaboratorios.filter(rl => rl.responsableId === currentUser.id).map(rl => rl.laboratorioId)
     : [];
