@@ -10,7 +10,7 @@
         "buenas noches",
         "qué tal"
       ],
-      "keywords": ["hola", "saludo", "buenos días", "buenas tardes", "buenas noches"],
+      "keywords": ["hola", "saludo", "buenos días", "buenas tardes", "buenas noches, qué tal"],
       "responses": [
         "¡Hola! Soy el chatbot de la aplicación de prácticas. Puedo ayudarte con preguntas frecuentes sobre programaciones, validación de prácticas, disponibilidad de laboratorios y más. ¿En qué puedo ayudarte hoy?"
       ]
@@ -18,12 +18,15 @@
     {
       "id": "despedida",
       "patterns": [
-        "adiós",
+        "adios",
         "hasta luego",
         "nos vemos",
-        "gracias"
+        "gracias",
+        "ok",
+        "okay",
+        "okey"
       ],
-      "keywords": ["adiós", "despedida", "hasta luego", "nos vemos", "gracias"],
+      "keywords": ["adiós", "despedida", "hasta luego", "nos vemos", "adios", "bye"],
       "responses": [
         "¡Hasta luego! Si tienes más preguntas, no dudes en volver. ¡Que tengas un buen día!"
       ]
@@ -49,9 +52,10 @@
         "no puedo entrar",
         "inicio de sesión",
         "no puedo iniciar sesión",
-        "comprobar usuario"
+        "comprobar usuario",
+        "no puedo abrir mi cuenta"
       ],
-      "keywords": ["inicio", "sesión", "entrar", "usuario", "contraseña"],
+      "keywords": ["inicio", "sesión", "entrar", "usuario", "contraseña", "cuenta"],
       "responses": [
         "Para iniciar sesión usa tu usuario y contraseña en la pantalla principal. Si no recuerdas tu clave, contacta a soporte: ro475972@uaeh.edu.mx"
       ]
@@ -158,7 +162,7 @@
         "pase de lista",
         "registrar alumnos"
       ],
-      "keywords": ["asistencia", "pase lista", "marcar", "alumnos"],
+      "keywords": ["asistencia", "pase lista", "marcar", "alumnos, asitencia, pase de lista"],
       "responses": [
         "En la sección 'Pase de lista' selecciona la programación correspondiente y marca los alumnos presentes. El sistema guarda el registro asociado a la práctica y la sesión." 
       ]
@@ -189,20 +193,7 @@
         "El calendario muestra programaciones por día. Haz clic en una tarjeta para ver detalles, editar capacidad o borrar (si tienes permisos). Para crear nuevas programaciones utiliza el formulario 'Nueva Programación' disponible según tu rol." 
       ]
     },
-    {
-      "id": "supabase_y_datos",
-      "patterns": [
-        "¿dónde se guardan los datos?",
-        "¿usa supabase?",
-        "privacidad datos",
-        "base de datos dónde está"
-      ],
-      "keywords": ["supabase", "base de datos", "datos", "privacidad"],
-      "responses": [
-        "Los datos se guardan en Supabase (una base de datos Postgres gestionada). Información sensible debe ser manejada según políticas institucionales; para dudas de privacidad contacta a soporte: ro475972@uaeh.edu.mx." 
-      ]
-    },
- 
+    
     {
       "id": "reportar_error",
       "patterns": [
@@ -215,18 +206,18 @@
       "responses": [
         "Si encuentras un error, describe los pasos para reproducirlo y envía la información a ro475972@uaeh.edu.mx. Incluye capturas de pantalla y mensajes de consola si es posible." 
       ]
+
     },
     {
-      "id": "diferencia_numAlumnos_numEquipos",
+      "id ": "validar_practicas",
       "patterns": [
-        "¿qué es numAlumnos?",
-        "numEquipos para qué sirve",
-        "diferencia numAlumnos numEquipos"
+        "no me han validado las prácticas",
+        "no me han aprobado la práctica",
+        "la práctica sigue pendiente"
       ],
-      "keywords": ["numAlumnos", "numEquipos", "capacidad", "equipos"],
-      "responses": [
-        "'numAlumnos' indica la capacidad en número de personas; 'numEquipos' indica la cantidad de estaciones o equipos disponibles. Algunas prácticas se planifican por alumno y otras por equipo, por eso existen ambos campos."
-      ]
+      "keywords": ["validar", "práctica", "pendiente", "aprobar"],
+      "responses": [ "El responsable de su laboratorio debe validar cada una de tus programaciones para que se considere aprobada. Si tu práctica sigue pendiente, contacta al responsable de tu laboratorio para confirmar la validación." ]
+
     }
   ]
 }

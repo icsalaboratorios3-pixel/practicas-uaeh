@@ -645,7 +645,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         {activeSection === "asistencias" && role === "admin" && <AsistenciasAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} />}
         {activeSection === "laboratorios" && role === "admin" && <LaboratoriosAdmin laboratorios={laboratorios} setLaboratorios={setLaboratorios} users={users} responsableLaboratorios={responsableLaboratorios} setResponsableLaboratorios={setResponsableLaboratorios} notify={notify} />}
         {activeSection === "programas" && role === "admin" && <ProgramasAdmin programas={programas} setProgramas={setProgramas} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} setProgramaLaboratorios={setProgramaLaboratorios} notify={notify} />}
-        {activeSection === "profesores" && <ProfesoresAdmin currentUser={currentUser} users={users} setUsers={setUsers} asignaturas={asignaturas} notify={notify} />}
+        {activeSection === "profesores" && <ProfesoresAdmin currentUser={currentUser} users={users} setUsers={setUsers} asignaturas={asignaturas} notify={notify} programaciones={programaciones} setProgramaciones={setProgramaciones} />}
         {activeSection === "asignaturas" && <AsignaturasAdmin currentUser={currentUser} asignaturas={asignaturas} setAsignaturas={setAsignaturas} programas={programas} notify={notify} />}
         {activeSection === "practicas" && <PracticasAdmin currentUser={currentUser} practicasCatalogo={practicasCatalogo} setPracticasCatalogo={setPracticasCatalogo} programas={programas} asignaturas={asignaturas} notify={notify} />}
         {activeSection === "perfil" && <ProfileSection currentUser={currentUser} users={users} setUsers={setUsers} setCurrentUser={setCurrentUser} notify={notify} />}
@@ -1076,10 +1076,23 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
           const prof = users.find(u => u.id === p.profesorId);
           const lab = laboratorios.find(l => l.id === p.laboratorioId);
           const practicas = Array.isArray(p.practicas) ? p.practicas : [];
+          const openView = () => setSelected({ ...p, practicas: practicas.map(pr => ({ ...pr })) });
+          const openEdit = () => setSelected({ ...p, practicas: practicas.map(pr => ({ ...pr })) , isEdit: true});
+          const removeProg = async (id) => {
+            const msg = `Esta acción eliminará definitivamente esta programación. ¿Seguro que desea eliminar la programación de ${p.asignatura} (${p.periodo})?`;
+            if (!window.confirm(msg)) return;
+            const { error } = await supabaseDeleteRow("programaciones", id);
+            if (!error) {
+              setProgramaciones(prev => prev.filter(x => x.id !== id));
+              notify("Programación eliminada correctamente");
+            } else {
+              notify("Error al eliminar la programación en BD. Eliminado localmente si aplica", "error");
+            }
+          };
           return (
-            <Card key={p.id} style={{ cursor: "pointer", transition: "box-shadow 0.15s" }} onClick={() => setSelected({ ...p, practicas: practicas.map(pr => ({ ...pr })) })}>
+            <Card key={p.id} style={{ cursor: "default", transition: "box-shadow 0.15s" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
+                <div style={{ flex: 1, cursor: "pointer" }} onClick={openView}>
                   <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 4px", color: "#222" }}>{p.asignatura}</h3>
                   <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px" }}>{p.periodo}  Grupo {p.grupo}  Semestre {p.semestre}</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -1089,9 +1102,14 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
                     <span style={{ fontSize: 12, background: "#f5f5f5", color: "#555", padding: "3px 10px", borderRadius: 20 }}>{p.numAlumnos} alumnos</span>
                   </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
+                <div style={{ textAlign: "right", display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", marginLeft: 12 }}>
                   <div style={{ fontSize: 22, fontWeight: 800, color: "#511013" }}>{practicas.length}</div>
-                  <div style={{ fontSize: 11, color: "#aaa" }}>prácticas</div>
+                  <div style={{ fontSize: 11, color: "#aaa", marginBottom: 6 }}>prácticas</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={openView} style={{ padding: "6px 12px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Ver</button>
+                    <button onClick={openEdit} style={{ padding: "6px 12px", border: "1px solid #511013", borderRadius: 6, background: "#511013", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Editar</button>
+                    <button onClick={() => removeProg(p.id)} style={{ padding: "6px 12px", border: "1px solid #ddd", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#c0392b" }}>Eliminar</button>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -1101,8 +1119,7 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
 
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative" }}>
-            <button onClick={() => setSelected(null)} style={{ position: "absolute", top: 16, right: 16, border: "none", background: "transparent", color: "#444", fontSize: 24, cursor: "pointer" }} aria-label="Cerrar detalle">×</button>
+          <div style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative", paddingRight: 80 }}>
             <ProgramacionDetail
               prog={selected}
               users={users}
@@ -1113,6 +1130,7 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
               programaciones={programaciones}
               notify={notify}
               readOnly={false}
+              isEdit={selected?.isEdit}
               practicasCatalogo={practicasCatalogo}
               asignaturas={asignaturas}
             />
@@ -1307,12 +1325,19 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.5rem" }}>
-        <button onClick={onBack} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer", fontSize: 13, color: "#555" }}> Volver</button>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{data.asignatura}</h2>
-        {data.validada && <span style={{ marginLeft: "auto", fontSize: 11, background: "#C8E6C9", color: "#2E7D32", padding: "4px 10px", borderRadius: 4, fontWeight: 700 }}>✓ Validada</span>}
-        {!readOnly && !editMode && <button onClick={() => setEditMode(true)} style={{ marginLeft: "auto", padding: "8px 18px", borderRadius: 8, border: "none", background: "#511013", color: "white", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Editar</button>}
-        {editMode && <button onClick={save} style={{ marginLeft: "auto", padding: "8px 18px", borderRadius: 8, border: "none", background: "#E8641C", color: "white", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Guardar</button>}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.5rem", padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={onBack} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer", fontSize: 13, color: "#555" }}>Volver</button>
+        </div>
+
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, flex: 1, color: "#222" }}>{data.asignatura}</h2>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {data.validada && <span style={{ fontSize: 12, background: "#C8E6C9", color: "#2E7D32", padding: "6px 10px", borderRadius: 6, fontWeight: 700 }}>✓ Validada</span>}
+          {!readOnly && !editMode && <button onClick={() => setEditMode(true)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #511013", background: "#511013", color: "white", cursor: "pointer", fontWeight: 700 }}>Editar</button>}
+          {editMode && <button onClick={save} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#E8641C", color: "white", cursor: "pointer", fontWeight: 700 }}>Guardar</button>}
+          <button onClick={onBack} aria-label="Cerrar detalle" style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>✕</button>
+        </div>
       </div>
 
       {readOnly && (
@@ -1345,18 +1370,96 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: "1.5rem" }}>
         <Card>
           <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 1rem", color: "#333" }}>Información General</h3>
-          <InfoRow label="Periodo" value={data.periodo} />
-          <InfoRow label="Programa Educativo" value={programa?.nombre} />
-          <InfoRow label="Asignatura" value={data.asignatura} />
-          <InfoRow label="Profesor" value={prof?.name} />
-          <InfoRow label="Semestre / Grupo" value={`${data.semestre}  Grupo ${data.grupo}`} />
+          {!editMode ? (
+            <>
+              <InfoRow label="Periodo" value={data.periodo} />
+              <InfoRow label="Programa Educativo" value={programa?.nombre} />
+              <InfoRow label="Asignatura" value={data.asignatura} />
+              <InfoRow label="Profesor" value={prof?.name} />
+              <InfoRow label="Semestre / Grupo" value={`${data.semestre}  Grupo ${data.grupo}`} />
+            </>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Periodo</label>
+                <input value={data.periodo || ""} onChange={e => setData(d => ({ ...d, periodo: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Programa Educativo</label>
+                <select value={data.programaId || data.programa_id || ""} onChange={e => setData(d => ({ ...d, programaId: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }}>
+                  <option value="">Seleccionar programa</option>
+                  {programas.map(pr => <option key={pr.id} value={pr.id}>{pr.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Asignatura</label>
+                <select value={data.asignaturaId || data.asignatura_id || ""} onChange={e => setData(d => ({ ...d, asignaturaId: e.target.value, asignatura: asignaturas.find(a=>String(a.id)===String(e.target.value))?.nombre || d.asignatura }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }}>
+                  <option value="">Seleccionar asignatura</option>
+                  {asignaturas.filter(a => !selectedProgramaId || String(a.programaId ?? a.programa_id) === String(selectedProgramaId)).map(a => (
+                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Profesor</label>
+                <select value={data.profesorId || data.profesor_id || ""} onChange={e => setData(d => ({ ...d, profesorId: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }}>
+                  <option value="">Seleccionar profesor</option>
+                  {users.filter(u=>u.role==="profesor").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+              <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Semestre</label>
+                  <input value={data.semestre || ""} onChange={e => setData(d => ({ ...d, semestre: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Grupo</label>
+                  <input value={data.grupo || ""} onChange={e => setData(d => ({ ...d, grupo: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
         <Card>
           <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 1rem", color: "#333" }}>Laboratorio y Horario</h3>
-          <InfoRow label="Laboratorio" value={lab?.nombre} />
-          <InfoRow label="Horario" value={`${data.dia} ${data.horaInicio}-${data.horaFin}`} />
-          <InfoRow label="No. alumnos" value={data.numAlumnos} />
-          <InfoRow label="No. equipos" value={data.numEquipos} />
+          {!editMode ? (
+            <>
+              <InfoRow label="Laboratorio" value={lab?.nombre} />
+              <InfoRow label="Horario" value={`${data.dia} ${data.horaInicio}-${data.horaFin}`} />
+              <InfoRow label="No. alumnos" value={data.numAlumnos} />
+              <InfoRow label="No. equipos" value={data.numEquipos} />
+            </>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Laboratorio</label>
+                <select value={data.laboratorioId || data.laboratorio_id || ""} onChange={e => setData(d => ({ ...d, laboratorioId: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }}>
+                  <option value="">Seleccionar laboratorio</option>
+                  {laboratorios.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Horario (dia)</label>
+                <input value={data.dia || ""} onChange={e => setData(d => ({ ...d, dia: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Hora inicio</label>
+                <input value={data.horaInicio || ""} onChange={e => setData(d => ({ ...d, horaInicio: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>Hora fin</label>
+                <input value={data.horaFin || ""} onChange={e => setData(d => ({ ...d, horaFin: e.target.value }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>No. alumnos</label>
+                <input type="number" value={data.numAlumnos || ""} onChange={e => setData(d => ({ ...d, numAlumnos: Number(e.target.value) }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 6 }}>No. equipos</label>
+                <input type="number" value={data.numEquipos || ""} onChange={e => setData(d => ({ ...d, numEquipos: Number(e.target.value) }))} style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd" }} />
+              </div>
+            </div>
+          )}
         </Card>
       </div>
       <Card>
@@ -1767,7 +1870,7 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
 }
 
 // Función para mostrar la sección de profesores para el administrador del sistema-----------------------------
-function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) {
+function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify, programaciones = [], setProgramaciones }) {
   const [searchTerm, setSearchTerm] = useState("");
   const profes = users
     .filter(u => u.role === "profesor")
@@ -1814,7 +1917,27 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify }) 
     setShowForm(false);
     setShowAsignaturasDropdown(false);
   };
-  const removeUser = async (id) => { if (!canModifyProfessors) return; const { error } = await supabaseDeleteRow("profiles", id); setUsers(prev => prev.filter(u => u.id !== id)); notify(error ? "Profesor eliminado localmente, no eliminado en BD" : "Profesor eliminado"); };
+  const removeUser = async (id) => {
+    if (!canModifyProfessors) return;
+    const related = programaciones.filter(p => String(p.profesorId) === String(id));
+    const warnMessage = related.length > 0
+      ? `Este profesor tiene ${related.length} programación${related.length === 1 ? "" : "es"}. Al borrar al profesor también se eliminarán todas sus programaciones. Esta acción no se puede deshacer.`
+      : "¿Seguro que desea quitar este profesor? Esta acción no se puede deshacer.";
+    if (!window.confirm(warnMessage)) return;
+
+    const { error: errorProgramaciones } = await supabase.from("programaciones").delete().eq("profesor_id", id);
+    const { error } = await supabaseDeleteRow("profiles", id);
+
+    if (!errorProgramaciones && setProgramaciones) {
+      setProgramaciones(prev => prev.filter(p => String(p.profesorId) !== String(id)));
+    }
+    if (!error) {
+      setUsers(prev => prev.filter(u => u.id !== id));
+    }
+
+    const hasError = error || errorProgramaciones;
+    notify(hasError ? "Profesor eliminado localmente, no eliminado en BD" : "Profesor y sus programaciones eliminados");
+  };
 
   return (
     <div>
