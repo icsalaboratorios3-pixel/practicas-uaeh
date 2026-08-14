@@ -209,15 +209,16 @@
 
     },
     {
-      "id ": "validar_practicas",
+      "id": "validar_practicas",
       "patterns": [
         "no me han validado las prácticas",
         "no me han aprobado la práctica",
         "la práctica sigue pendiente"
       ],
       "keywords": ["validar", "práctica", "pendiente", "aprobar"],
-      "responses": [ "El responsable de su laboratorio debe validar cada una de tus programaciones para que se considere aprobada. Si tu práctica sigue pendiente, contacta al responsable de tu laboratorio para confirmar la validación." ]
-
+      "responses": [
+        "El responsable de su laboratorio debe validar cada una de tus programaciones para que se considere aprobada. Si tu práctica sigue pendiente, contacta al responsable de tu laboratorio para confirmar la validación."
+      ]
     }
   ]
 }

@@ -76,7 +76,8 @@ export default function ChatbotWidget() {
   useEffect(() => {
     const loadKnowledge = async () => {
       try {
-        const res = await fetch("/respues++ftas.json");
+        const res = await fetch("/respuestas.json");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (Array.isArray(data.intents)) setIntents(data.intents);
         if (typeof data.support_email === "string") setSupportEmail(data.support_email);
@@ -228,7 +229,5 @@ export default function ChatbotWidget() {
   );
 
   // return para mostrar la sección de chatbot en el menú lateral
-  return (
-    <div>{null}</div>
-  );
+  return null;
 }

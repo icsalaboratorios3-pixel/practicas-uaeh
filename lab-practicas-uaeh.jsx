@@ -43,166 +43,34 @@ const normalizeDbRow = (row) => {
     role: typeof normalized.role === "string" ? normalized.role.toLowerCase() : normalized.role,
   };
 };
-const normalizeAppRowForDb = (table, row) => {
-  if (!row || typeof row !== "object" || Array.isArray(row)) return row;
-  const allowed = DB_TABLE_COLUMNS[table];
-  return Object.entries(row).reduce((acc, [key, value]) => {
-    if (value === undefined) return acc;
-    const snakeKey = toSnakeCase(key);
-    if (snakeKey === "id") return acc;
-    if (allowed && !allowed.includes(snakeKey)) return acc;
-    acc[snakeKey] = value;
-    return acc;
-  }, {});
+
+const convertKeysRecursively = (value) => {
+  if (Array.isArray(value)) return value.map(convertKeysRecursively);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => [toSnakeCase(key), convertKeysRecursively(entryValue)])
+    );
+  }
+  return value;
 };
 
 const supabaseInsertRow = async (table, row) => {
-  const dbRow = normalizeAppRowForDb(table, row);
-  if (dbRow.id == null) dbRow.id = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000); //
-  const { data, error } = await supabase.from(table).insert(dbRow).select().maybeSingle();
-  const normalizedData = data ? normalizeDbRow(data) : null;
-  if (error) console.warn(`Supabase insert failed for ${table}:`, error.message);
-  return { data: normalizedData, error };
+  const payload = convertKeysRecursively(row);
+  const { data, error } = await supabase.from(table).insert([payload]).select("*");
+  return { data: Array.isArray(data) && data.length ? normalizeDbRow(data[0]) : null, error };
 };
 
 const supabaseUpdateRow = async (table, id, row) => {
-  const dbRow = normalizeAppRowForDb(table, row);
-  const { data, error } = await supabase.from(table).update(dbRow).eq("id", id).select().maybeSingle();
-  const normalizedData = data ? normalizeDbRow(data) : null;
-  if (error) console.warn(`Supabase update failed for ${table} id=${id}:`, error.message);
-  return { data: normalizedData, error };
+  const payload = convertKeysRecursively(row);
+  const { data, error } = await supabase.from(table).update(payload).eq("id", id).select("*");
+  return { data: Array.isArray(data) && data.length ? normalizeDbRow(data[0]) : null, error };
 };
 
 const supabaseDeleteRow = async (table, id) => {
-  try {
-    const { data, error } = await supabase.from(table).delete().eq("id", id).select();
-    if (error) console.warn(`Supabase delete failed for ${table} id=${id}:`, error.message, error); 
-    return { data, error };
-  } catch (err) {
-    console.warn(`Supabase delete exception for ${table} id=${id}:`, err);
-    return { error: err };
-  }
+  return supabase.from(table).delete().eq("id", id);
 };
 
-const INITIAL_USERS = [
-  { id: 1, username: "admin", password: "admin123", name: "Administrador General", role: "admin", active: true, email: "admin@uaeh.edu.mx" },
-];
-
-var INITIAL_RESPONSABLE_LABORATORIOS = [
-  // Imagen de responsables por laboratorio
-  { responsableId: 6, laboratorioId: 1 },   // Bioquímica (1a Etapa) -> Gloria Téllez
-  { responsableId: 7, laboratorioId: 2 },   // Histología -> Said Martínez
-  { responsableId: 7, laboratorioId: 3 },   // Patología -> Said Martínez
-  { responsableId: 8, laboratorioId: 4 },   // Fisiología (Nutrición) -> Alejandra Islas
-  { responsableId: 8, laboratorioId: 5 },   // Bioquímica y Bromatología -> Alejandra Islas
-  { responsableId: 9, laboratorioId: 6 },   // Embriología y Genética -> Angélica Mendoza
-  { responsableId: 10, laboratorioId: 7 },  // CLEMPs -> Sergio Ocampo
-  { responsableId: 11, laboratorioId: 8 },  // Quirófanos -> José Muñoz
-  { responsableId: 11, laboratorioId: 9 },  // Taller de Cirugía -> José Muñoz
-  { responsableId: 12, laboratorioId: 10 }, // Inmunología -> María Huesca
-  { responsableId: 12, laboratorioId: 11 }, // Farmacognosia -> María Huesca
-  { responsableId: 12, laboratorioId: 12 }, // Fisicoquímica fisiológica -> María Huesca
-  { responsableId: 12, laboratorioId: 13 }, // Biofarmacia -> María Huesca
-  { responsableId: 12, laboratorioId: 14 }, // Investigación (Farmacia) -> María Huesca
-  { responsableId: 4, laboratorioId: 15 },  // Fisiología (1a Etapa) -> Patricia González
-  { responsableId: 4, laboratorioId: 16 },  // Farmacología -> Patricia González
-  { responsableId: 13, laboratorioId: 17 }, // Anatomía -> María Sánchez
-  { responsableId: 14, laboratorioId: 18 }, // Microbiología y Parasitología -> Raúl Marines
-  { responsableId: 15, laboratorioId: 19 }, // Desarrollo de Nuevos Productos -> Ivonne García
-  { responsableId: 15, laboratorioId: 20 }, // Antropometría -> Ivonne García
-  { responsableId: 19, laboratorioId: 21 }, // Evaluación del Estado Nutricio -> Jonathan Angeles
-  { responsableId: 19, laboratorioId: 22 }, // Dietética y Arte culinario -> Jonathan Angeles
-  { responsableId: 20, laboratorioId: 23 }, // Taller de Evaluación e Intervención Gerontológica -> Dulce Galindo
-  { responsableId: 16, laboratorioId: 24 }, // Clínica Odontológica 1 -> Arturo Ascencio
-  { responsableId: 16, laboratorioId: 25 }, // Clínica Odontológica 2 -> Arturo Ascencio
-  { responsableId: 16, laboratorioId: 26 }, // Clínica Odontológica 3 -> Arturo Ascencio
-  { responsableId: 16, laboratorioId: 27 }, // Clínica Odontológica 4 -> Arturo Ascencio
-  { responsableId: 16, laboratorioId: 28 }, // Laboratorio Odontológico 1 -> Arturo Ascencio
-  { responsableId: 16, laboratorioId: 29 }, // Laboratorio Odontológico 2 -> Arturo Ascencio
-  { responsableId: 16, laboratorioId: 30 }, // Laboratorio Odontológico 3 -> Arturo Ascencio
-  { responsableId: 16, laboratorioId: 31 }, // Laboratorio Odontológico Ramírez Ulloa -> Arturo Ascencio
-  { responsableId: 17, laboratorioId: 32 }, // Psicofisiología -> Itzel Moreno
-  { responsableId: 17, laboratorioId: 33 }, // Clínica de Psicodiagnóstico -> Itzel Moreno
-  { responsableId: 18, laboratorioId: 34 }, // Cámara de Gesel -> Antonia Iglesias
-];
-
-var INITIAL_PROGRAMA_LABORATORIOS = [
-  // Cirujano Dentista
-  { programaId: 1, laboratorioId: 1 },
-  { programaId: 1, laboratorioId: 2 },
-  { programaId: 1, laboratorioId: 3 },
-  { programaId: 1, laboratorioId: 6 },
-  { programaId: 1, laboratorioId: 7 },
-  { programaId: 1, laboratorioId: 15 },
-  { programaId: 1, laboratorioId: 17 },
-  { programaId: 1, laboratorioId: 18 },
-  { programaId: 1, laboratorioId: 24 },
-  { programaId: 1, laboratorioId: 25 },
-  { programaId: 1, laboratorioId: 26 },
-  { programaId: 1, laboratorioId: 27 },
-  { programaId: 1, laboratorioId: 28 },
-  { programaId: 1, laboratorioId: 29 },
-  { programaId: 1, laboratorioId: 30 },
-  { programaId: 1, laboratorioId: 31 },
-  // Medicina
-  { programaId: 2, laboratorioId: 1 },
-  { programaId: 2, laboratorioId: 2 },
-  { programaId: 2, laboratorioId: 3 },
-  { programaId: 2, laboratorioId: 4 },
-  { programaId: 2, laboratorioId: 5 },
-  { programaId: 2, laboratorioId: 6 },
-  { programaId: 2, laboratorioId: 7 },
-  { programaId: 2, laboratorioId: 8 },
-  { programaId: 2, laboratorioId: 9 },
-  { programaId: 2, laboratorioId: 10 },
-  { programaId: 2, laboratorioId: 15 },
-  { programaId: 2, laboratorioId: 16 },
-  { programaId: 2, laboratorioId: 17 },
-  { programaId: 2, laboratorioId: 18 },
-  { programaId: 2, laboratorioId: 23 },
-  // Farmacia
-  { programaId: 3, laboratorioId: 6 },
-  { programaId: 3, laboratorioId: 7 },
-  { programaId: 3, laboratorioId: 10 },
-  { programaId: 3, laboratorioId: 11 },
-  { programaId: 3, laboratorioId: 12 },
-  { programaId: 3, laboratorioId: 13 },
-  { programaId: 3, laboratorioId: 14 },
-  { programaId: 3, laboratorioId: 19 },
-  { programaId: 3, laboratorioId: 16 },
-  // Nutrición
-  { programaId: 4, laboratorioId: 4 },
-  { programaId: 4, laboratorioId: 5 },
-  { programaId: 4, laboratorioId: 6 },
-  { programaId: 4, laboratorioId: 7 },
-  { programaId: 4, laboratorioId: 15 },
-  { programaId: 4, laboratorioId: 20 },
-  { programaId: 4, laboratorioId: 21 },
-  { programaId: 4, laboratorioId: 22 },
-  // Psicología
-  { programaId: 5, laboratorioId: 5 },
-  { programaId: 5, laboratorioId: 6 },
-  { programaId: 5, laboratorioId: 7 },
-  { programaId: 5, laboratorioId: 32 },
-  { programaId: 5, laboratorioId: 33 },
-  { programaId: 5, laboratorioId: 34 },
-  // Enfermería
-  { programaId: 6, laboratorioId: 2 },
-  { programaId: 6, laboratorioId: 6 },
-  { programaId: 6, laboratorioId: 7 },
-  { programaId: 6, laboratorioId: 10 },
-  { programaId: 6, laboratorioId: 11 },
-  { programaId: 6, laboratorioId: 12 },
-  { programaId: 6, laboratorioId: 13 },
-  { programaId: 6, laboratorioId: 14 },
-  { programaId: 6, laboratorioId: 15 },
-  // Gerontología
-  { programaId: 7, laboratorioId: 7 },
-  { programaId: 7, laboratorioId: 23 },
-  { programaId: 7, laboratorioId: 2 },
-];
-
-var INITIAL_LABORATORIOS = [
+const INITIAL_LABORATORIOS = [
   { id: 1, nombre: "Bioquímica (1a Etapa)", capacidad: 40, ubicacion: "Edificio A, Planta Baja", activo: true },
   { id: 2, nombre: "Histología", capacidad: 35, ubicacion: "Edificio B, Piso 2", activo: true },
   { id: 3, nombre: "Patología", capacidad: 30, ubicacion: "Edificio C, Planta Baja", activo: true },
@@ -254,7 +122,26 @@ const INITIAL_ASIGNATURAS = [
 ];
 
 const INITIAL_PRACTICAS = [
-  
+  { id: 1, nombre: "Microscopía", activo: true, programaId: 1, asignaturaId: 1 },
+  { id: 2, nombre: "Anatomía general", activo: true, programaId: 2, asignaturaId: 2 },
+  { id: 3, nombre: "Análisis de laboratorio", activo: true, programaId: 3, asignaturaId: 3 },
+];
+
+const INITIAL_USERS = [
+  { id: 1, username: "admin", password: "admin123", name: "Administrador", role: "admin", active: true, email: "admin@uaeh.edu.mx" },
+  { id: 2, username: "profesor1", password: "profesor123", name: "Dra. López", role: "profesor", active: true, email: "profesor1@uaeh.edu.mx" },
+  { id: 3, username: "lab1", password: "lab123", name: "Responsable Lab", role: "laboratorio", active: true, email: "lab1@uaeh.edu.mx" },
+];
+
+const INITIAL_RESPONSABLE_LABORATORIOS = [
+  { responsableId: 3, laboratorioId: 15 },
+  { responsableId: 3, laboratorioId: 16 },
+];
+
+const INITIAL_PROGRAMA_LABORATORIOS = [
+  { programaId: 1, laboratorioId: 15 },
+  { programaId: 2, laboratorioId: 16 },
+  { programaId: 3, laboratorioId: 1 },
 ];
 
 const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -576,7 +463,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
     if (role === "profesor") return [
       { id: "dashboard", label: "Mi Panel", icon: "" },
       { id: "mis-programaciones", label: "Mis Programaciones", icon: "" },
-      { id: "pase-lista", label: "Pase de Lista", icon: "✓" },
+      { id: "pase-lista", label: "Pase de Lista", icon: "" },
       { id: "nueva-programacion", label: "Nueva Programación", icon: "+" },
       { id: "disponibilidad", label: "Disponibilidad de Labs", icon: "" },
     ];
@@ -584,7 +471,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
       { id: "dashboard", label: "Mi Laboratorio", icon: "" },
       { id: "asignaturas", label: "Asignaturas", icon: "" },
       { id: "practicas", label: "Prácticas", icon: "" },
-      { id: "pase-lista", label: "Pase de Lista", icon: "✓" },
+      { id: "pase-lista", label: "Pase de Lista", icon: "" },
       { id: "mi-calendario", label: "Calendario de Prácticas", icon: "" },
       { id: "conflictos", label: "Horario de Prácticas", icon: "" },
     ];
@@ -727,6 +614,7 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
   const today = new Date().toISOString().split("T")[0];
   const labIds = responsableLaboratorios.filter(rl => rl.responsableId === currentUser.id).map(rl => rl.laboratorioId);
   const [selectedLab, setSelectedLab] = useState(labIds.length === 1 ? labIds[0] : "");
+  const [showPast, setShowPast] = useState(false);
   const myProgramaciones = role === "profesor"
     ? programaciones.filter(p => String(p.profesorId) === String(currentUser.id))
     : programaciones.filter(p => labIds.includes(p.laboratorioId));
@@ -735,16 +623,19 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
     : myProgramaciones;
 
   const toggleAttendance = async (progId, field) => {
-    const patch = { [field]: true };
+    const currentProg = programaciones.find(p => p.id === progId);
+    if (!currentProg) return notify("Programación no encontrada.", "error");
+
+    const nextValue = !Boolean(currentProg[field]);
+    const patch = { [field]: nextValue };
     const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, patch);
     if (error) {
       notify("Error guardando la asistencia. Intenta de nuevo.", "error");
-      setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...patch }) : p));
       return;
     }
     const persisted = updated ? updated : patch;
     setProgramaciones(prev => prev.map(p => p.id === progId ? ({ ...p, ...persisted }) : p));
-    notify("Asistencia registrada correctamente.");
+    notify(nextValue ? "Asistencia registrada correctamente." : "Asistencia desmarcada correctamente.");
   };
 
   const pad = (value) => String(value).padStart(2, "0");
@@ -759,100 +650,249 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
 
   const isPracticeDay = (prog) => {
     const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
-    return practicas.some(pr => pr.fecha === today);
+    // Allow marking attendance during the entire week of the practice (Mon-Sun)
+    return practicas.some(pr => {
+      if (!pr.fecha) return false;
+      try {
+        const practiceDate = new Date(pr.fecha + "T00:00:00");
+        const todayDate = new Date(today + "T00:00:00");
+        // compute Monday of practice week (treat Monday as first day)
+        const practiceDay = practiceDate.getDay(); // 0 (Sun) - 6 (Sat)
+        const daysSinceMonday = (practiceDay + 6) % 7; // 0 for Monday, 6 for Sunday
+        const weekStart = new Date(practiceDate);
+        weekStart.setDate(practiceDate.getDate() - daysSinceMonday);
+        weekStart.setHours(0,0,0,0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23,59,59,999);
+        return todayDate >= weekStart && todayDate <= weekEnd;
+      } catch (err) {
+        return false;
+      }
+    });
+  };
+
+  // Past practices (fecha < today) flattened list to allow marking missed attendances
+  const pastPractices = displayedProgramaciones.flatMap(prog => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
+    return practicas.filter(pr => pr.fecha && pr.fecha < today).map(pr => ({
+      programacionId: prog.id,
+      programacion: prog,
+      practice: pr,
+    }));
+  }).sort((a, b) => b.practice.fecha.localeCompare(a.practice.fecha));
+
+  const markPastPractice = async (programacionId, practiceId, field) => {
+    const prog = programaciones.find(p => p.id === programacionId);
+    if (!prog) return notify("Programación no encontrada.", "error");
+
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas.map(p => ({ ...p })) : [];
+    const practiceToUpdate = practicas.find(p => p.id === practiceId);
+    if (!practiceToUpdate) return notify("Práctica no encontrada.", "error");
+
+    const nextValue = !Boolean(practiceToUpdate[field]);
+    const updatedPracticas = practicas.map(p => {
+      if (p.id === practiceId) {
+        return { ...p, [field]: nextValue };
+      }
+      return p;
+    });
+
+    const { data: updated, error } = await supabaseUpdateRow("programaciones", programacionId, { practicas: updatedPracticas });
+    if (error) {
+      notify("Error guardando la asistencia de práctica. Intenta de nuevo.", "error");
+      return;
+    }
+    const persisted = updated ? updated : { practicas: updatedPracticas };
+    setProgramaciones(prev => prev.map(p => p.id === programacionId ? ({ ...p, ...persisted }) : p));
+    notify(nextValue ? "Asistencia de práctica actualizada correctamente." : "Asistencia de práctica desmarcada correctamente.");
   };
 
   return (
     <div>
       <SectionHeader title="Pase de Lista" subtitle="Marca asistencia del profesor y confirma llegada en el laboratorio" />
+      
       <Card>
         <p style={{ margin: "0 0 1rem", color: "#555", lineHeight: 1.6 }}>
           Aquí puede registrar su asistencia el responsable de laboratorio deberá confirmar la llegada para que la práctica quede como asistida.
         </p>
-        {(role === "laboratorio" && labIds.length > 0) && (
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: "1rem" }}>
-            <label style={{ fontSize: 13, color: "#555", fontWeight: 600 }}>Filtrar por laboratorio:</label>
-            <select value={selectedLab} onChange={e => setSelectedLab(e.target.value)}
-              style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #ddd", fontSize: 14 }}>
-              <option value="">Todos los laboratorios</option>
-              {laboratorios
-                .filter(lab => labIds.includes(lab.id))
-                .map(lab => <option key={lab.id} value={lab.id}>{lab.nombre}</option>)}
-            </select>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: "1rem" }}>
+          {(role === "laboratorio" && labIds.length > 0) && (
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <label style={{ fontSize: 13, color: "#555", fontWeight: 600 }}>Filtrar por laboratorio:</label>
+              <select value={selectedLab} onChange={e => setSelectedLab(e.target.value)}
+                style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #ddd", fontSize: 14 }}>
+                <option value="">Todos los laboratorios</option>
+                {laboratorios
+                  .filter(lab => labIds.includes(lab.id))
+                  .map(lab => <option key={lab.id} value={lab.id}>{lab.nombre}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 6, background: "#f5f5f5", padding: 4, borderRadius: 6, marginLeft: role === "laboratorio" && labIds.length > 0 ? "auto" : 0 }}>
+            <button
+              onClick={() => setShowPast(false)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 4,
+                border: "none",
+                background: !showPast ? "#987b4e" : "transparent",
+                color: !showPast ? "white" : "#555",
+                cursor: "pointer",
+                fontWeight: 700,
+                boxShadow: !showPast ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+              }}
+            >
+              Programaciones activas
+            </button>
+            <button
+              onClick={() => setShowPast(true)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 4,
+                border: "none",
+                background: showPast ? "#b69768" : "transparent",
+                color: showPast ? "white" : "#555",
+                cursor: "pointer",
+                fontWeight: 700,
+                boxShadow: showPast ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+              }}
+            >
+              Prácticas pasadas
+            </button>
           </div>
-        )}
-        {displayedProgramaciones.length === 0 ? (
-          <div style={{ padding: "2rem", color: "#777", textAlign: "center" }}>
-            No hay programaciones disponibles para este registro de asistencia.
+        </div>
+
+        {showPast ? (
+          <div style={{ marginTop: 12 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>Prácticas pasadas</h3>
+            <p style={{ margin: "0 0 12px", color: "#666" }}>Aquí puede ver prácticas con fecha anterior a hoy. Si alguna no fue marcada, puede registrarla manualmente.</p>
+            {pastPractices.length === 0 ? (
+              <div style={{ padding: "1rem", color: "#777", textAlign: "center" }}>No hay prácticas pasadas recientes.</div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#F5F5F5", borderBottom: "2px solid #ddd" }}>
+                    {['Fecha', 'Asignatura', 'Grupo', 'Profesor', 'Laboratorio', 'Práctica', 'Asistencia prof.', 'Confirmación lab.', 'Acción'].map(h => (
+                      <th key={h} style={{ padding: "8px", textAlign: 'left', color: '#444', fontWeight: 700, fontSize: 12 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pastPractices.map(row => {
+                    const { programacion, practice } = row;
+                    const prof = users.find(u => u.id === programacion.profesorId);
+                    const lab = laboratorios.find(l => l.id === programacion.laboratorioId);
+                    const profMarked = practice.asistenciaProfesor || programacion.asistenciaProfesor;
+                    const labMarked = practice.asistenciaResponsable || programacion.asistenciaResponsable;
+                    return (
+                      <tr key={`${programacion.id}-${practice.id}`} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '8px' }}>{fmtDate(practice.fecha)}</td>
+                        <td style={{ padding: '8px' }}>{programacion.asignatura}</td>
+                        <td style={{ padding: '8px' }}>{programacion.grupo}</td>
+                        <td style={{ padding: '8px' }}>{prof?.name || '—'}</td>
+                        <td style={{ padding: '8px' }}>{lab?.nombre || '—'}</td>
+                        <td style={{ padding: '8px' }}>{practice.nombre}</td>
+                        <td style={{ padding: '8px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: profMarked ? '#C8E6C9' : '#FFF4E8', color: profMarked ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>{profMarked ? 'Sí' : 'No'}</span>
+                        </td>
+                        <td style={{ padding: '8px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: labMarked ? '#C8E6C9' : '#FFF4E8', color: labMarked ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>{labMarked ? 'Sí' : 'No'}</span>
+                        </td>
+                        <td style={{ padding: '8px' }}>
+                          {role === 'profesor' && String(programacion.profesorId) === String(currentUser.id) && (
+                            <button onClick={() => markPastPractice(programacion.id, practice.id, 'asistenciaProfesor')}
+                              style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: profMarked ? '#C8E6C9' : '#511013', color: 'white', cursor: 'pointer' }}>
+                              {profMarked ? 'Desmarcar' : 'Marcar asistencia'}
+                            </button>
+                          )}
+                          {role === 'laboratorio' && (
+                            <button onClick={() => markPastPractice(programacion.id, practice.id, 'asistenciaResponsable')}
+                              style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: labMarked ? '#C8E6C9' : '#F39200', color: 'white', cursor: 'pointer' }}>
+                              {labMarked ? 'Desmarcar' : 'Confirmar llegada'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "#F5F5F5", borderBottom: "2px solid #ddd" }}>
-                {['Asignatura', 'Grupo', 'Profesor', 'Laboratorio', 'Práctica', 'Asistencia prof.', 'Confirmación lab.', 'Estado', 'Acción'].map(header => (
-                  <th key={header} style={{ padding: "10px", textAlign: 'left', color: '#444', fontWeight: 700, fontSize: 12 }}>{header}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {displayedProgramaciones.slice().sort((a, b) => {
-                const pa = getPracticeInfo(a).dateRaw;
-                const pb = getPracticeInfo(b).dateRaw;
-                if (pa === pb) return (a.asignatura || "").localeCompare(b.asignatura || "");
-                return pa.localeCompare(pb);
-              }).map(prog => {
-                const prof = users.find(u => u.id === prog.profesorId);
-                const lab = laboratorios.find(l => l.id === prog.laboratorioId);
-                const practiceInfo = getPracticeInfo(prog);
-                const confirmed = prog.asistenciaProfesor && prog.asistenciaResponsable;
-                return (
-                  <tr key={prog.id} style={{ borderBottom: '1px solid #eee', background: confirmed ? '#E8F5E9' : 'white' }}>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.asignatura}</td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.grupo}</td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{prof?.name || '—'}</td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{lab?.nombre || '—'}</td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>{practiceInfo.label}: <strong>{practiceInfo.date}</strong></td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaProfesor ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaProfesor ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
-                        {prog.asistenciaProfesor ? 'Marcado' : 'Pendiente'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaResponsable ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaResponsable ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
-                        {prog.asistenciaResponsable ? 'Confirmado' : 'Pendiente'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                      {confirmed ? (
-                        <span style={{ color: '#2E7D32', fontWeight: 700 }}>Asistencia confirmada</span>
-                      ) : (
-                        <span style={{ color: '#E8641C', fontWeight: 700 }}>{prog.asistenciaProfesor || prog.asistenciaResponsable ? 'Parcial' : 'Sin registrar'}</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                      {role === 'profesor' ? (
-                        <button
-                          disabled={prog.asistenciaProfesor || !isPracticeDay(prog)}
-                          onClick={() => toggleAttendance(prog.id, 'asistenciaProfesor')}
-                          style={{ minWidth: 120, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaProfesor ? '#C8E6C9' : '#511013', color: 'white', cursor: prog.asistenciaProfesor || !isPracticeDay(prog) ? 'default' : 'pointer', opacity: prog.asistenciaProfesor || !isPracticeDay(prog) ? 0.5 : 1, fontWeight: 700 }}
-                        >
-                          {prog.asistenciaProfesor ? 'Presente' : 'Marcar presente'}
-                        </button>
-                      ) : (
-                        <button
-                          disabled={prog.asistenciaResponsable || !isPracticeDay(prog)}
-                          onClick={() => toggleAttendance(prog.id, 'asistenciaResponsable')}
-                          style={{ minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaResponsable ? '#C8E6C9' : '#F39200', color: 'white', cursor: prog.asistenciaResponsable || !isPracticeDay(prog) ? 'default' : 'pointer', opacity: prog.asistenciaResponsable || !isPracticeDay(prog) ? 0.5 : 1, fontWeight: 700 }}
-                        >
-                          {prog.asistenciaResponsable ? 'Confirmado' : 'Confirmar llegada'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          displayedProgramaciones.length === 0 ? (
+            <div style={{ padding: "2rem", color: "#777", textAlign: "center" }}>
+              No hay programaciones disponibles para este registro de asistencia.
+            </div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#F5F5F5", borderBottom: "2px solid #ddd" }}>
+                  {['Asignatura', 'Grupo', 'Profesor', 'Laboratorio', 'Práctica', 'Asistencia prof.', 'Confirmación lab.', 'Estado', 'Acción'].map(header => (
+                    <th key={header} style={{ padding: "10px", textAlign: 'left', color: '#444', fontWeight: 700, fontSize: 12 }}>{header}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {displayedProgramaciones.slice().sort((a, b) => {
+                  const pa = getPracticeInfo(a).dateRaw;
+                  const pb = getPracticeInfo(b).dateRaw;
+                  if (pa === pb) return (a.asignatura || "").localeCompare(b.asignatura || "");
+                  return pa.localeCompare(pb);
+                }).map(prog => {
+                  const prof = users.find(u => u.id === prog.profesorId);
+                  const lab = laboratorios.find(l => l.id === prog.laboratorioId);
+                  const practiceInfo = getPracticeInfo(prog);
+                  const confirmed = prog.asistenciaProfesor && prog.asistenciaResponsable;
+                  return (
+                    <tr key={prog.id} style={{ borderBottom: '1px solid #eee', background: confirmed ? '#E8F5E9' : 'white' }}>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.asignatura}</td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.grupo}</td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>{prof?.name || '—'}</td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>{lab?.nombre || '—'}</td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>{practiceInfo.label}: <strong>{practiceInfo.date}</strong></td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaProfesor ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaProfesor ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                          {prog.asistenciaProfesor ? 'Marcado' : 'Pendiente'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaResponsable ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaResponsable ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                          {prog.asistenciaResponsable ? 'Confirmado' : 'Pendiente'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                        {confirmed ? (
+                          <span style={{ color: '#2E7D32', fontWeight: 700 }}>Asistencia confirmada</span>
+                        ) : (
+                          <span style={{ color: '#E8641C', fontWeight: 700 }}>{prog.asistenciaProfesor || prog.asistenciaResponsable ? 'Parcial' : 'Sin registrar'}</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px', verticalAlign: 'top' }}>
+                        {role === 'profesor' ? (
+                          <button
+                            onClick={() => toggleAttendance(prog.id, 'asistenciaProfesor')}
+                            style={{ minWidth: 120, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaProfesor ? '#C8E6C9' : '#511013', color: 'white', cursor: 'pointer', opacity: 1, fontWeight: 700 }}
+                          >
+                            {prog.asistenciaProfesor ? 'Desmarcar' : 'Marcar presente'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleAttendance(prog.id, 'asistenciaResponsable')}
+                            style={{ minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaResponsable ? '#C8E6C9' : '#F39200', color: 'white', cursor: 'pointer', opacity: 1, fontWeight: 700 }}
+                          >
+                            {prog.asistenciaResponsable ? 'Desmarcar' : 'Confirmar llegada'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )
         )}
       </Card>
     </div>
