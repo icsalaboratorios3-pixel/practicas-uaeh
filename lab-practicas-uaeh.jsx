@@ -541,7 +541,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
         {activeSection === "mis-programaciones" && role === "profesor" && <MisProgramaciones currentUser={currentUser} users={users} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} notify={notify} setActiveSection={setActiveSection} responsableLaboratorios={responsableLaboratorios} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} />}
         {activeSection === "nueva-programacion" && role === "profesor" && <NuevaProgramacion currentUser={currentUser} programaciones={programaciones} setProgramaciones={setProgramaciones} laboratorios={laboratorios} programas={programas} programaLaboratorios={programaLaboratorios} responsableLaboratorios={responsableLaboratorios} users={users} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} notify={notify} setActiveSection={setActiveSection} />}
         {activeSection === "disponibilidad" && role === "profesor" && <DisponibilidadLabs programaciones={programaciones} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} programas={programas} />}
-        {activeSection === "mi-calendario" && role === "laboratorio" && <CalendarioLaboratorio currentUser={currentUser} programaciones={programaciones} users={users} programas={programas} laboratorios={laboratorios} setProgramaciones={setProgramaciones} notify={notify} responsableLaboratorios={responsableLaboratorios} />}
+        {activeSection === "mi-calendario" && role === "laboratorio" && <CalendarioLaboratorio currentUser={currentUser} programaciones={programaciones} users={users} programas={programas} laboratorios={laboratorios} asignaturas={asignaturas} setProgramaciones={setProgramaciones} notify={notify} responsableLaboratorios={responsableLaboratorios} />}
         {activeSection === "pase-lista" && <PaseListaSection currentUser={currentUser} programaciones={programaciones} users={users} laboratorios={laboratorios} responsableLaboratorios={responsableLaboratorios} setProgramaciones={setProgramaciones} notify={notify} />}
       </main>
       </div>
@@ -2610,13 +2610,16 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
     return acc;
   }, {});
   const sortedDays = dayOrder.filter(day => groupedByDay[day] && groupedByDay[day].length > 0);
-  const [selectedDay, setSelectedDay] = useState(sortedDays[0] || "");
+  const todayName = new Date().toLocaleDateString("es-MX", { weekday: "long" }).toLowerCase();
+  const todayDay = dayOrder.find(day => normalizeDayName(day) === todayName) || sortedDays[0] || "";
+  const [selectedDay, setSelectedDay] = useState(todayDay);
 
   useEffect(() => {
+    const preferredDay = dayOrder.find(day => normalizeDayName(day) === todayName) || sortedDays[0] || "";
     if (!selectedDay || !groupedByDay[selectedDay]) {
-      setSelectedDay(sortedDays[0] || "");
+      setSelectedDay(preferredDay);
     }
-  }, [sortedDays, selectedDay]);
+  }, [sortedDays, selectedDay, todayName]);
 
   const subtitle = currentUser.role === "laboratorio"
     ? `${misProg.length} programaci${misProg.length === 1 ? "ón" : "ones"} asignada(s)`
@@ -3298,10 +3301,13 @@ function ValidacionModal({ prog, responsable, onValidate, onCancel, users }) {
   );
 }
 
-function CalendarioLaboratorio({ currentUser, programaciones, users, programas, laboratorios, setProgramaciones, notify, responsableLaboratorios }) {
+function CalendarioLaboratorio({ currentUser, programaciones, users, programas, laboratorios, asignaturas = [], setProgramaciones, notify, responsableLaboratorios }) {
   const misLabIds = responsableLaboratorios.filter(rl => rl.responsableId === currentUser.id).map(rl => rl.laboratorioId);
   const misProg = programaciones.filter(p => misLabIds.includes(p.laboratorioId));
-  const [filter, setFilter] = useState("");
+  const [programaFilter, setProgramaFilter] = useState("");
+  const [laboratorioFilter, setLaboratorioFilter] = useState("");
+  const [asignaturaFilter, setAsignaturaFilter] = useState("");
+  const [estadoFilter, setEstadoFilter] = useState("");
   const [validacionModal, setValidacionModal] = useState(null);
   const [viewMode, setViewMode] = useState("tabla"); // "tabla" o "calendario"
   const [expandedProgIds, setExpandedProgIds] = useState([]);
@@ -3411,13 +3417,17 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
   };
 
   const filteredProg = misProg.filter(prog => {
-    if (!filter.trim()) return true;
-    const q = filter.toLowerCase();
-    const prof = users.find(u => u.id === prog.profesorId)?.name.toLowerCase() || "";
-    const lab = laboratorios.find(l => l.id === prog.laboratorioId)?.nombre.toLowerCase() || "";
-    const programaNombre = programas.find(pg => pg.id === prog.programaId)?.nombre.toLowerCase() || "";
-    const practicaMatch = Array.isArray(prog.practicas) ? prog.practicas.some(pr => [pr.nombre, pr.reprogramacion].join(" ").toLowerCase().includes(q)) : false;
-    return [prog.asignatura, prog.periodo, prog.grupo, prog.semestre, prof, lab, programaNombre].join(" ").includes(q) || practicaMatch;
+    const matchesPrograma = !programaFilter || String(prog.programaId) === String(programaFilter);
+    const matchesLaboratorio = !laboratorioFilter || String(prog.laboratorioId) === String(laboratorioFilter);
+    const matchesAsignatura = !asignaturaFilter || String(prog.asignaturaId ?? prog.asignatura_id ?? "") === String(asignaturaFilter);
+
+    let estado = "pendiente";
+    if (prog.validada) estado = "validada";
+    else if (prog.reprogramacionPendiente) estado = "reprogramacion";
+    else if (prog.reprogramacionAutorizada) estado = "reprogramada";
+    const matchesEstado = !estadoFilter || estado === estadoFilter;
+
+    return matchesPrograma && matchesLaboratorio && matchesAsignatura && matchesEstado;
   });
 
   const today = new Date().toISOString().split("T")[0];
@@ -3506,11 +3516,50 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
         </div>
       </Card>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: "1.5rem", alignItems: "center" }}>
-        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Buscar por práctica o asignatura..." style={{ padding: "10px 16px", borderRadius: 8, border: "1.5px solid #ddd", flex: 1, fontSize: 14 }} />
-        <div style={{ display: "flex", gap: 6, background: "#f5f5f5", padding: 4, borderRadius: 6 }}>
-          <button onClick={() => setViewMode("tabla")} style={{ padding: "8px 14px", borderRadius: 4, border: "none", background: viewMode === "tabla" ? "white" : "transparent", color: viewMode === "tabla" ? "#511013" : "#666", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Tabla</button>
-          <button onClick={() => setViewMode("calendario")} style={{ padding: "8px 14px", borderRadius: 4, border: "none", background: viewMode === "calendario" ? "white" : "transparent", color: viewMode === "calendario" ? "#511013" : "#666", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Calendario</button>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: "1.5rem", alignItems: "center" }}>
+        <select value={laboratorioFilter} onChange={e => { setLaboratorioFilter(e.target.value); setAsignaturaFilter(""); }} style={{ padding: "10px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, background: "white" }}>
+          <option value="">Todos mis laboratorios</option>
+          {laboratorios
+            .filter(l => l.activo && misLabIds.includes(l.id))
+            .sort(sortAlpha("nombre"))
+            .map(l => (
+              <option key={l.id} value={l.id}>{l.nombre}</option>
+            ))}
+        </select>
+
+        <select value={asignaturaFilter} onChange={e => setAsignaturaFilter(e.target.value)} style={{ padding: "10px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, background: "white" }}>
+          <option value="">{laboratorioFilter ? "Asignaturas del laboratorio" : "Todas las asignaturas"}</option>
+          {asignaturas
+            .filter(a => a.activo)
+            .filter(a => {
+              const relacionadas = misProg.filter(prog => String(prog.asignaturaId ?? prog.asignatura_id ?? "") === String(a.id));
+              if (!laboratorioFilter) return relacionadas.length > 0;
+              return relacionadas.some(prog => String(prog.laboratorioId) === String(laboratorioFilter));
+            })
+            .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" }))
+            .map(a => (
+              <option key={a.id} value={a.id}>{a.nombre}</option>
+            ))}
+        </select>
+
+        <select value={estadoFilter} onChange={e => setEstadoFilter(e.target.value)} style={{ padding: "10px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, background: "white" }}>
+          <option value="">Todos los estados</option>
+          <option value="validada">Validada</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="reprogramacion">Reprogramación</option>
+          <option value="reprogramada">Reprogramada</option>
+        </select>
+
+        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+          {(laboratorioFilter || asignaturaFilter || estadoFilter) && (
+            <button onClick={() => { setLaboratorioFilter(""); setAsignaturaFilter(""); setEstadoFilter(""); }} style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, background: "white", cursor: "pointer", color: "#555", fontWeight: 600 }}>
+              Limpiar filtros
+            </button>
+          )}
+          <div style={{ display: "flex", gap: 6, background: "#f5f5f5", padding: 4, borderRadius: 6 }}>
+            <button onClick={() => setViewMode("tabla")} style={{ padding: "8px 14px", borderRadius: 4, border: "none", background: viewMode === "tabla" ? "white" : "transparent", color: viewMode === "tabla" ? "#511013" : "#666", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Tabla</button>
+            <button onClick={() => setViewMode("calendario")} style={{ padding: "8px 14px", borderRadius: 4, border: "none", background: viewMode === "calendario" ? "white" : "transparent", color: viewMode === "calendario" ? "#511013" : "#666", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Calendario</button>
+          </div>
         </div>
       </div>
 
