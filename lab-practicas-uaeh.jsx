@@ -24,7 +24,7 @@ const DB_TABLE_COLUMNS = {
   programa_laboratorios: ["programa_id", "laboratorio_id"],
   responsable_laboratorios: ["responsable_id", "laboratorio_id"],
   programaciones: [
-    "profesor_id", "laboratorio_id", "programa_id", "periodo", "asignatura_id", "asignatura",
+    "id", "profesor_id", "laboratorio_id", "programa_id", "periodo", "asignatura_id", "asignatura",
     "semestre", "grupo", "dia", "hora_inicio", "hora_fin", "num_alumnos", "num_equipos",
     "validada", "validado_por", "fecha_validacion",
     "reprogramacion_pendiente", "reprogramacion_autorizada", "reprogramacion_solicitada_por", "reprogramacion_solicitada_by", "reprogramacion_aprobada_by", "fecha_solicitud_reprogramacion", "fecha_aprobacion",
