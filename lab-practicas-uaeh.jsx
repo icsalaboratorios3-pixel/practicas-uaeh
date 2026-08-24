@@ -459,6 +459,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
       { id: "practicas", label: "Prácticas", icon: "" },
       { id: "usuarios", label: "Usuarios", icon: "" },
       { id: "conflictos", label: "Conflictos de Horario", icon: "" },
+      { id: "informe", label: "Informe General", icon: "▣" },
     ];
     if (role === "profesor") return [
       { id: "dashboard", label: "Mi Panel", icon: "" },
@@ -528,6 +529,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
 
       <main style={{ marginLeft: 240, flex: 1, overflowY: "auto", padding: "2rem", background: "#fafafa", minWidth: 0 }}>
         {activeSection === "dashboard" && <DashboardSection currentUser={currentUser} programaciones={programaciones} laboratorios={laboratorios} users={users} responsableLaboratorios={responsableLaboratorios} />}
+        {activeSection === "informe" && role === "admin" && <AdminInformeSection programaciones={programaciones} laboratorios={laboratorios} users={users} programas={programas} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} />}
         {activeSection === "programaciones" && role === "admin" && <ProgramacionesAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} programas={programas} setProgramaciones={setProgramaciones} notify={notify} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />}
         {activeSection === "asistencias" && role === "admin" && <AsistenciasAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} />}
         {activeSection === "laboratorios" && role === "admin" && <LaboratoriosAdmin laboratorios={laboratorios} setLaboratorios={setLaboratorios} users={users} responsableLaboratorios={responsableLaboratorios} setResponsableLaboratorios={setResponsableLaboratorios} notify={notify} />}
@@ -625,6 +627,10 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
   const toggleAttendance = async (progId, field) => {
     const currentProg = programaciones.find(p => p.id === progId);
     if (!currentProg) return notify("Programación no encontrada.", "error");
+    if (!isPracticeDay(currentProg)) {
+      notify("La asistencia solo puede marcarse durante la semana de la práctica.", "error");
+      return;
+    }
 
     const nextValue = !Boolean(currentProg[field]);
     const patch = { [field]: nextValue };
@@ -690,7 +696,8 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
     const practiceToUpdate = practicas.find(p => p.id === practiceId);
     if (!practiceToUpdate) return notify("Práctica no encontrada.", "error");
 
-    const nextValue = !Boolean(practiceToUpdate[field]);
+    const wasMarked = Boolean(practiceToUpdate[field] || prog[field]);
+    const nextValue = !wasMarked;
     const updatedPracticas = practicas.map(p => {
       if (p.id === practiceId) {
         return { ...p, [field]: nextValue };
@@ -698,7 +705,9 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
       return p;
     });
 
-    const { data: updated, error } = await supabaseUpdateRow("programaciones", programacionId, { practicas: updatedPracticas });
+    const patch = { practicas: updatedPracticas };
+    if (prog[field] && !practiceToUpdate[field]) patch[field] = nextValue;
+    const { data: updated, error } = await supabaseUpdateRow("programaciones", programacionId, patch);
     if (error) {
       notify("Error guardando la asistencia de práctica. Intenta de nuevo.", "error");
       return;
@@ -767,7 +776,7 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
         {showPast ? (
           <div style={{ marginTop: 12 }}>
             <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>Prácticas pasadas</h3>
-            <p style={{ margin: "0 0 12px", color: "#666" }}>Aquí puede ver prácticas con fecha anterior a hoy. Si alguna no fue marcada, puede registrarla manualmente.</p>
+            <p style={{ margin: "0 0 12px", color: "#666" }}>Aquí puede ver prácticas con fecha anterior a hoy, puede marcar como asistida de ser necesario</p>
             {pastPractices.length === 0 ? (
               <div style={{ padding: "1rem", color: "#777", textAlign: "center" }}>No hay prácticas pasadas recientes.</div>
             ) : (
@@ -978,6 +987,103 @@ function ProfileSection({ currentUser, users, setUsers, setCurrentUser, notify }
 }
 
 //Función para mostrar el panel de control del usuario según su rol (profesor, laboratorio o admin)--------
+function AdminInformeSection({ programaciones = [], laboratorios = [], users = [], programas = [], asignaturas = [], practicasCatalogo = [] }) {
+  const totalProgramaciones = programaciones.length;
+  const totalLaboratorios = laboratorios.filter(l => l.activo).length;
+  const totalProfesores = users.filter(u => u.role === "profesor" && u.active).length;
+  const totalProgramas = programas.filter(p => p.activo).length;
+  const totalAsignaturas = asignaturas.filter(a => a.activo).length;
+  const totalPracticasCatalogo = practicasCatalogo.filter(p => p.activo).length;
+  const programacionesValidadas = programaciones.filter(p => p.validada).length;
+  const programacionesPendientes = programaciones.filter(p => !p.validada).length;
+  const asistenciasRegistradas = programaciones.filter(p => p.asistenciaProfesor || p.asistenciaResponsable).length;
+
+  const resumenLabs = laboratorios
+    .filter(l => l.activo)
+    .map(lab => {
+      const count = programaciones.filter(p => String(p.laboratorioId) === String(lab.id)).length;
+      const validadas = programaciones.filter(p => String(p.laboratorioId) === String(lab.id) && p.validada).length;
+      return { ...lab, count, validadas };
+    })
+    .sort((a, b) => (b.count + b.validadas) - (a.count + a.validadas));
+
+  return (
+    <div>
+      <SectionHeader title="Informe General" subtitle="Resumen ejecutivo del sistema" />
+
+      <Card style={{ marginBottom: "1.5rem", background: "linear-gradient(135deg, #511013 0%, #7d1d20 100%)", border: "none", color: "white" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1, opacity: 0.8, marginBottom: 6 }}>Indicador clave</div>
+            <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.1 }}>{programacionesValidadas}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 12, opacity: 0.8, textTransform: "uppercase", letterSpacing: 1 }}>Programaciones validadas</div>
+            <div style={{ fontSize: 24, fontWeight: 700 }}>{((programacionesValidadas / Math.max(totalProgramaciones, 1)) * 100).toFixed(0)}%</div>
+          </div>
+        </div>
+      </Card>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 16, marginBottom: "1.5rem" }}>
+        <StatCard label="Programaciones" value={totalProgramaciones} color="#511013" bg="#FBE5E5" />
+        <StatCard label="Laboratorios" value={totalLaboratorios} color="#F39200" bg="#FFF4E8" />
+        <StatCard label="Programas" value={totalProgramas} color="#E8641C" bg="#FFEEDD" />
+        <StatCard label="Profesores" value={totalProfesores} color="#575756" bg="#F5F5F5" />
+        <StatCard label="Asignaturas" value={totalAsignaturas} color="#2E7D32" bg="#E8F5E9" />
+        <StatCard label="Prácticas" value={totalPracticasCatalogo} color="#511013" bg="#FBE5E5" />
+        <StatCard label="Validadas" value={programacionesValidadas} color="#2E7D32" bg="#C8E6C9" />
+        <StatCard label="Pendientes" value={programacionesPendientes} color="#F39200" bg="#FFF4E8" />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr", gap: 16 }}>
+        <Card>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 1rem", color: "#333" }}>Resumen por laboratorio</h3>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid #f0f0f0", background: "#f9f2f2" }}>
+                <th style={{ textAlign: "left", padding: "10px", color: "#511013", fontWeight: 700 }}>Laboratorio</th>
+                <th style={{ textAlign: "center", padding: "10px", color: "#511013", fontWeight: 700 }}>Programaciones</th>
+                <th style={{ textAlign: "center", padding: "10px", color: "#511013", fontWeight: 700 }}>Validadas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resumenLabs.map(lab => (
+                <tr key={lab.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
+                  <td style={{ padding: "10px", fontWeight: 600, color: "#333" }}>{lab.nombre}</td>
+                  <td style={{ padding: "10px", textAlign: "center", color: "#555" }}>{lab.count}</td>
+                  <td style={{ padding: "10px", textAlign: "center", color: "#2E7D32", fontWeight: 700 }}>{lab.validadas}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+
+        <Card>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 1rem", color: "#333" }}>Estado general</h3>
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", background: "#FBE5E5", borderRadius: 8 }}>
+              <span style={{ fontWeight: 600, color: "#511013" }}>Asistencias registradas</span>
+              <strong>{asistenciasRegistradas}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", background: "#E8F5E9", borderRadius: 8 }}>
+              <span style={{ fontWeight: 600, color: "#2E7D32" }}>Programaciones validadas</span>
+              <strong>{programacionesValidadas}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", background: "#FFF4E8", borderRadius: 8 }}>
+              <span style={{ fontWeight: 600, color: "#F39200" }}>Programaciones pendientes</span>
+              <strong>{programacionesPendientes}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", background: "#F5F5F5", borderRadius: 8 }}>
+              <span style={{ fontWeight: 600, color: "#575756" }}>Total de registros</span>
+              <strong>{totalProgramaciones + totalLaboratorios + totalProfesores}</strong>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 function DashboardSection({ currentUser, programaciones, laboratorios, users, responsableLaboratorios }) {
   const role = currentUser?.role || "profesor";
   const getUserShortName = (name) => (name || "Usuario").split(" ").slice(-2).join(" ");
@@ -3553,7 +3659,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
           {(laboratorioFilter || asignaturaFilter || estadoFilter) && (
             <button onClick={() => { setLaboratorioFilter(""); setAsignaturaFilter(""); setEstadoFilter(""); }} style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 8, background: "white", cursor: "pointer", color: "#555", fontWeight: 600 }}>
-              Limpiar filtros
+               Cancelar
             </button>
           )}
           <div style={{ display: "flex", gap: 6, background: "#f5f5f5", padding: 4, borderRadius: 6 }}>
