@@ -83,6 +83,14 @@ const supabaseDeleteRow = async (table, id) => {
   return supabase.from(table).delete().eq("id", id);
 };
 
+const getNextIntegerId = (rows) => {
+  const maxId = rows.reduce((max, row) => {
+    const id = Number(row?.id);
+    return Number.isInteger(id) && id > max ? id : max;
+  }, 0);
+  return maxId + 1;
+};
+
 const INITIAL_LABORATORIOS = [
   { id: 1, nombre: "Bioquímica (1a Etapa)", capacidad: 40, ubicacion: "Edificio A, Planta Baja", activo: true },
   { id: 2, nombre: "Histología", capacidad: 35, ubicacion: "Edificio B, Piso 2", activo: true },
@@ -3108,7 +3116,7 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
     const nueva = {
       ...form,
       periodo: periodoStr,
-      id: Date.now(),
+      id: getNextIntegerId(programaciones),
       profesorId: currentUser.id,
       laboratorioId: parseInt(form.laboratorioId, 10),
       programaId: form.programaId ? parseInt(form.programaId, 10) : null,
