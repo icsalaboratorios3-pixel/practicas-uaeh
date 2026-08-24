@@ -54,14 +54,27 @@ const convertKeysRecursively = (value) => {
   return value;
 };
 
+const getDbPayload = (table, row) => {
+  const allowedColumns = DB_TABLE_COLUMNS[table];
+  if (!allowedColumns) return convertKeysRecursively(row);
+  return Object.fromEntries(
+    allowedColumns
+      .filter(column => row[toCamelCase(column)] !== undefined || row[column] !== undefined)
+      .map(column => {
+        const value = row[toCamelCase(column)] !== undefined ? row[toCamelCase(column)] : row[column];
+        return [column, column === "practicas" ? value : convertKeysRecursively(value)];
+      })
+  );
+};
+
 const supabaseInsertRow = async (table, row) => {
-  const payload = convertKeysRecursively(row);
+  const payload = getDbPayload(table, row);
   const { data, error } = await supabase.from(table).insert([payload]).select("*");
   return { data: Array.isArray(data) && data.length ? normalizeDbRow(data[0]) : null, error };
 };
 
 const supabaseUpdateRow = async (table, id, row) => {
-  const payload = convertKeysRecursively(row);
+  const payload = getDbPayload(table, row);
   const { data, error } = await supabase.from(table).update(payload).eq("id", id).select("*");
   return { data: Array.isArray(data) && data.length ? normalizeDbRow(data[0]) : null, error };
 };
@@ -1417,6 +1430,11 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
       fechaSolicitudReprogramacion: fecha
     };
     const { data: updated, error } = await supabaseUpdateRow("programaciones", data.id, nextData);
+    if (error || !updated) {
+      console.error("Error guardando solicitud de reprogramación:", error);
+      notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+      return;
+    }
     const persisted = updated ? { ...nextData, ...updated } : nextData;
     setProgramaciones(prev => prev.map(p => p.id === data.id ? persisted : p));
     setData(persisted);
@@ -1438,6 +1456,11 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
     } : data;
 
     const { data: updated, error } = await supabaseUpdateRow("programaciones", data.id, nextData);
+    if (error || !updated) {
+      console.error("Error actualizando programación:", error);
+      notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+      return;
+    }
     const persisted = updated ? { ...nextData, ...updated } : nextData;
     setProgramaciones(prev => prev.map(p => p.id === data.id ? persisted : p));
     setData(persisted);
@@ -3101,9 +3124,14 @@ function NuevaProgramacion({ currentUser, programaciones, setProgramaciones, lab
       fechaAprobacion: null
     };
     const { data: inserted, error } = await supabaseInsertRow("programaciones", nueva);
-    const created = inserted ? inserted : nueva;
+    if (error || !inserted) {
+      console.error("Error creando programación:", error);
+      notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+      return;
+    }
+    const created = inserted;
     setProgramaciones(prev => [...prev, created]);
-    notify(error ? "Programación creada localmente, no guardada en BD" : "Programación creada exitosamente");
+    notify("Programación creada exitosamente");
     setActiveSection("mis-programaciones");
   };
 
