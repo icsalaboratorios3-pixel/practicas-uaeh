@@ -18,7 +18,7 @@ const sortAlpha = (field) => (a, b) => (String(a[field] || "")).localeCompare(St
 const DB_TABLE_COLUMNS = {
   asignaturas: ["nombre", "activo", "programa_id", "created_by_id"],
   practicas: ["nombre", "activo", "programa_id", "asignatura_id", "created_by_id"],
-  laboratorios: ["nombre", "capacidad", "ubicacion", "activo"],
+  laboratorios: ["id", "nombre", "capacidad", "ubicacion", "activo"],
   programas: ["nombre", "activo"],
   profiles: ["username", "password", "name", "role", "active", "email", "auth_user_id", "asignaturas_ids"],
   programa_laboratorios: ["programa_id", "laboratorio_id"],
@@ -1716,14 +1716,23 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
     if (editing) {
       const row = { ...form, id: editing };
       const { data: updated, error } = await supabaseUpdateRow("laboratorios", editing, row);
-      const next = laboratorios.map(l => l.id === editing ? (updated ? { ...row, ...updated } : row) : l);
+      if (error || !updated) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const next = laboratorios.map(l => l.id === editing ? { ...row, ...updated } : l);
       setLaboratorios(next);
-      notify(error ? "Laboratorio actualizado localmente, no guardado en BD" : "Laboratorio actualizado");
+      notify("Laboratorio actualizado");
     } else {
-      const { data: inserted, error } = await supabaseInsertRow("laboratorios", { ...form, activo: true });
-      const created = inserted ? inserted : { ...form, id: Date.now(), activo: true };
+      const nueva = { ...form, id: getNextIntegerId(laboratorios), activo: true };
+      const { data: inserted, error } = await supabaseInsertRow("laboratorios", nueva);
+      if (error || !inserted) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const created = inserted;
       setLaboratorios(prev => [...prev, created]);
-      notify(error ? "Laboratorio agregado localmente, no guardado en BD" : "Laboratorio agregado");
+      notify("Laboratorio agregado");
     }
     setShowForm(false);
   };
