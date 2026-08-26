@@ -16,11 +16,11 @@ const mapObjectKeys = (obj, transform) => {
 const sortAlpha = (field) => (a, b) => (String(a[field] || "")).localeCompare(String(b[field] || ""), "es", { sensitivity: "base" });
 
 const DB_TABLE_COLUMNS = {
-  asignaturas: ["nombre", "activo", "programa_id", "created_by_id"],
-  practicas: ["nombre", "activo", "programa_id", "asignatura_id", "created_by_id"],
+  asignaturas: ["id", "nombre", "activo", "programa_id", "created_by_id"],
+  practicas: ["id", "nombre", "activo", "programa_id", "asignatura_id", "created_by_id"],
   laboratorios: ["id", "nombre", "capacidad", "ubicacion", "activo"],
-  programas: ["nombre", "activo"],
-  profiles: ["username", "password", "name", "role", "active", "email", "auth_user_id", "asignaturas_ids"],
+  programas: ["id", "nombre", "activo"],
+  profiles: ["id", "username", "password", "name", "role", "active", "email", "auth_user_id", "asignaturas_ids"],
   programa_laboratorios: ["programa_id", "laboratorio_id"],
   responsable_laboratorios: ["responsable_id", "laboratorio_id"],
   programaciones: [
@@ -62,7 +62,10 @@ const getDbPayload = (table, row) => {
       .filter(column => row[toCamelCase(column)] !== undefined || row[column] !== undefined)
       .map(column => {
         const value = row[toCamelCase(column)] !== undefined ? row[toCamelCase(column)] : row[column];
-        return [column, column === "practicas" ? value : convertKeysRecursively(value)];
+        const normalizedValue = table === "profiles" && column === "email" && value === ""
+          ? `${row.username}@sin-correo.local`
+          : value;
+        return [column, column === "practicas" ? normalizedValue : convertKeysRecursively(normalizedValue)];
       })
   );
 };
@@ -1396,12 +1399,20 @@ function AsistenciasAdmin({ programaciones = [], users = [], laboratorios = [] }
 
 //Función para mostrar la sección de programaciones para el profesor del sistema-----------------------------
 function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack, setProgramaciones, programaciones, notify, readOnly = false, isEdit = false, currentUser, practicasCatalogo = [], asignaturas = [] }) {
-  const [editMode, setEditMode] = useState(isEdit && !readOnly);
+  const isResponsibleLimitedEditor = currentUser?.role === "laboratorio";
+  const canEditCurrentProgram = currentUser?.role === "admin" || currentUser?.role === "laboratorio" || (currentUser?.role === "profesor" && !readOnly);
+  const effectiveReadOnly = readOnly && currentUser?.role !== "admin" && currentUser?.role !== "laboratorio";
+  const canEditPracticas = !isResponsibleLimitedEditor && (currentUser?.role === "admin" || currentUser?.role === "profesor");
+  const [editMode, setEditMode] = useState(Boolean(isEdit) && canEditCurrentProgram);
   const [data, setData] = useState({ ...prog, practicas: (prog.practicas || []).map(p => ({ ...p })) });
 
   useEffect(() => {
     setData({ ...prog, practicas: (prog.practicas || []).map(p => ({ ...p })) });
   }, [prog]);
+
+  useEffect(() => {
+    if (isEdit && canEditCurrentProgram) setEditMode(true);
+  }, [isEdit, canEditCurrentProgram]);
 
   const prof = users.find(u => String(u.id) === String(data.profesorId));
   const lab = laboratorios.find(l => String(l.id) === String(data.laboratorioId));
@@ -1511,13 +1522,13 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {data.validada && <span style={{ fontSize: 12, background: "#C8E6C9", color: "#2E7D32", padding: "6px 10px", borderRadius: 6, fontWeight: 700 }}>✓ Validada</span>}
-          {!readOnly && !editMode && <button onClick={() => setEditMode(true)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #511013", background: "#511013", color: "white", cursor: "pointer", fontWeight: 700 }}>Editar</button>}
+          {canEditCurrentProgram && !editMode && <button onClick={() => setEditMode(true)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #511013", background: "#511013", color: "white", cursor: "pointer", fontWeight: 700 }}>Editar</button>}
           {editMode && <button onClick={save} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#E8641C", color: "white", cursor: "pointer", fontWeight: 700 }}>Guardar</button>}
           <button onClick={onBack} aria-label="Cerrar detalle" style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>✕</button>
         </div>
       </div>
 
-      {readOnly && (
+      {effectiveReadOnly && (
         <Card style={{ marginBottom: "1.5rem", background: "#FFFBF7", border: "1px solid #F39200", padding: "12px 16px" }}>
           <p style={{ fontSize: 12, color: "#F39200", fontWeight: 700, margin: 0 }}>🔒 Esta programación ha sido validada</p>
           {data.reprogramacionPendiente ? (
@@ -1642,7 +1653,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
           <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "#333" }}>Tabla de Prácticas del Semestre</h3>
-          {editMode && <button onClick={addPractica} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#511013", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Agregar práctica</button>}
+          {editMode && canEditPracticas && <button onClick={addPractica} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#511013", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Agregar práctica</button>}
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
@@ -1659,7 +1670,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
               <tr key={pr.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
                 <td style={{ textAlign: "center", padding: "8px 10px", fontWeight: 700, color: "#511013" }}>{pr.numero}</td>
                 <td style={{ padding: "8px 10px" }}>
-                  {editMode ? (
+                  {editMode && canEditPracticas ? (
                     practicasDisponibles.length ? (
                       <select value={pr.practicaId ?? ""} onChange={e => updatePractica(idx, "practicaId", e.target.value)} style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }}>
                         <option value="">Seleccionar práctica...</option>
@@ -1676,12 +1687,12 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
                   ) : pr.nombre}
                 </td>
                 <td style={{ textAlign: "center", padding: "8px 10px" }}>
-                  {editMode ? <input type="date" value={pr.fecha} onChange={e => updatePractica(idx, "fecha", e.target.value)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} /> : <span style={{ color: "#511013", fontWeight: 600 }}>{fmtDate(pr.fecha)}</span>}
+                  {editMode && canEditPracticas ? <input type="date" value={pr.fecha} onChange={e => updatePractica(idx, "fecha", e.target.value)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} /> : <span style={{ color: "#511013", fontWeight: 600 }}>{fmtDate(pr.fecha)}</span>}
                 </td>
                 <td style={{ textAlign: "center", padding: "8px 10px" }}>
-                  {editMode ? <input type="date" value={pr.reprogramacion} onChange={e => updatePractica(idx, "reprogramacion", e.target.value)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} /> : (pr.reprogramacion ? <span style={{ color: "#F39200", fontWeight: 600 }}>{fmtDate(pr.reprogramacion)}</span> : <span style={{ color: "#ccc" }}></span>)}
+                  {editMode && canEditPracticas ? <input type="date" value={pr.reprogramacion} onChange={e => updatePractica(idx, "reprogramacion", e.target.value)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} /> : (pr.reprogramacion ? <span style={{ color: "#F39200", fontWeight: 600 }}>{fmtDate(pr.reprogramacion)}</span> : <span style={{ color: "#ccc" }}></span>)}
                 </td>
-                {editMode && <td style={{ textAlign: "center" }}><button onClick={() => removePractica(idx)} style={{ border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontSize: 16 }}>×</button></td>}
+                {editMode && canEditPracticas && <td style={{ textAlign: "center" }}><button onClick={() => removePractica(idx)} style={{ border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontSize: 16 }}>×</button></td>}
               </tr>
             ))}
           </tbody>
@@ -1708,6 +1719,7 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
   const empty = { nombre: "", capacidad: "", ubicacion: "", activo: true };
   const [form, setForm] = useState(empty);
   const [showResponsablesModal, setShowResponsablesModal] = useState(null);
+  const [savingResponsable, setSavingResponsable] = useState(null);
 
   const openAdd = () => { setForm(empty); setEditing(null); setShowForm(true); };
   const openEdit = (lab) => { setForm({ ...lab }); setEditing(lab.id); setShowForm(true); };
@@ -1745,25 +1757,30 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
   };
 
   const toggleResponsable = async (labId, responsableId) => {
+    const savingKey = `${labId}-${responsableId}`;
+    if (savingResponsable === savingKey) return;
+    setSavingResponsable(savingKey);
     const exists = responsableLaboratorios.find(rl => rl.laboratorioId === labId && rl.responsableId === responsableId);
-    if (exists) {
-      // use snake_case column names when calling Supabase
-      const { error } = await supabase.from("responsable_laboratorios").delete().match({ laboratorio_id: labId, responsable_id: responsableId });
-      setResponsableLaboratorios(prev => prev.filter(rl => !(rl.laboratorioId === labId && rl.responsableId === responsableId)));
-      if (error) {
-        notify("Responsable desasignado localmente, no eliminado en BD", "error");
+    try {
+      if (exists) {
+        const { error } = await supabase.from("responsable_laboratorios").delete().match({ laboratorio_id: labId, responsable_id: responsableId });
+        if (error) {
+          notify(error.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el cambio en la BD.", "error");
+        } else {
+          setResponsableLaboratorios(prev => prev.filter(rl => !(rl.laboratorioId === labId && rl.responsableId === responsableId)));
+          notify("Responsable desasignado correctamente", "success");
+        }
       } else {
-        notify("Responsable desasignado correctamente", "success");
+        const { error } = await supabase.from("responsable_laboratorios").insert({ responsable_id: responsableId, laboratorio_id: labId });
+        if (error) {
+          notify(error.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el cambio en la BD.", "error");
+        } else {
+          setResponsableLaboratorios(prev => [...prev, { responsableId, laboratorioId: labId }]);
+          notify("Responsable asignado correctamente", "success");
+        }
       }
-    } else {
-      // use snake_case column names when inserting so RLS/column mapping matches DB
-      const { error } = await supabase.from("responsable_laboratorios").insert({ responsable_id: responsableId, laboratorio_id: labId });
-      setResponsableLaboratorios(prev => [...prev, { responsableId, laboratorioId: labId }]);
-      if (error) {
-        notify("Responsable asignado localmente, no guardado en BD", "error");
-      } else {
-        notify("Responsable asignado correctamente", "success");
-      }
+    } finally {
+      setSavingResponsable(null);
     }
   };
 
@@ -1866,10 +1883,12 @@ function LaboratoriosAdmin({ laboratorios, setLaboratorios, users, responsableLa
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {users.filter(u => u.role === "laboratorio" && u.active).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" })).map(resp => {
                 const isAssigned = responsableLaboratorios.some(rl => rl.laboratorioId === showResponsablesModal && rl.responsableId === resp.id);
+                const isSaving = savingResponsable === `${showResponsablesModal}-${resp.id}`;
                 return (
-                  <label key={resp.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 12px", borderRadius: 8, border: "1px solid #eee", background: "#fff" }}>
-                    <input type="checkbox" checked={isAssigned} onChange={() => toggleResponsable(showResponsablesModal, resp.id)} style={{ cursor: "pointer" }} />
+                  <label key={resp.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: isSaving ? "wait" : "pointer", padding: "10px 12px", borderRadius: 8, border: "1px solid #eee", background: isSaving ? "#f7f7f7" : "#fff", opacity: isSaving ? 0.7 : 1 }}>
+                    <input type="checkbox" checked={isAssigned} disabled={Boolean(savingResponsable)} onChange={() => toggleResponsable(showResponsablesModal, resp.id)} style={{ cursor: isSaving ? "wait" : "pointer" }} />
                     <span style={{ fontSize: 14, color: "#333" }}>{resp.name}</span>
+                    {isSaving && <span style={{ marginLeft: "auto", fontSize: 12, color: "#F39200", fontWeight: 600 }}>Guardando...</span>}
                   </label>
                 );
               })}
@@ -1898,14 +1917,23 @@ function ProgramasAdmin({ programas, setProgramas, laboratorios, programaLaborat
     if (editing) {
       const row = { nombre, activo: true };
       const { data: updated, error } = await supabaseUpdateRow("programas", editing, row);
-      const next = programas.map(p => p.id === editing ? (updated ? { ...p, ...updated } : { ...p, nombre }) : p);
+      if (error || !updated) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const next = programas.map(p => p.id === editing ? { ...p, ...updated } : p);
       setProgramas(next);
-      notify(error ? "Programa actualizado localmente, no guardado en BD" : "Programa actualizado");
+      notify("Programa actualizado");
     } else {
-      const { data: inserted, error } = await supabaseInsertRow("programas", { nombre, activo: true });
-      const created = inserted ? inserted : { id: Date.now(), nombre, activo: true };
+      const nuevo = { id: getNextIntegerId(programas), nombre, activo: true };
+      const { data: inserted, error } = await supabaseInsertRow("programas", nuevo);
+      if (error || !inserted) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const created = inserted;
       setProgramas(prev => [...prev, created]);
-      notify(error ? "Programa agregado localmente, no guardado en BD" : "Programa agregado");
+      notify("Programa agregado");
     }
     setShowForm(false);
   };
@@ -2087,18 +2115,27 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify, pr
       const updateRow = { username: form.username, email: form.email, name: form.name, asignaturasIds: form.asignaturasIds, role: "profesor", active: form.active };
       if (form.password) updateRow.password = form.password;
       const { data: updated, error } = await supabaseUpdateRow("profiles", editing, updateRow);
-      const next = users.map(u => u.id === editing ? (updated ? { ...u, ...updated } : { ...u, ...updateRow }) : u);
+      if (error || !updated) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const next = users.map(u => u.id === editing ? { ...u, ...updated } : u);
       setUsers(next);
-      notify(error ? "Profesor actualizado localmente, no guardado en BD" : "Profesor actualizado");
+      notify("Profesor actualizado");
     } else {
       if (!form.password) {
         notify("La contraseña es obligatoria para crear un profesor", "error");
         return;
       }
-      const { data: inserted, error } = await supabaseInsertRow("profiles", nextProfesor);
-      const created = inserted ? inserted : nextProfesor;
+      const profesorConId = { ...nextProfesor, id: getNextIntegerId(users) };
+      const { data: inserted, error } = await supabaseInsertRow("profiles", profesorConId);
+      if (error || !inserted) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const created = inserted;
       setUsers(prev => [...prev, created]);
-      notify(error ? "Profesor agregado localmente, no guardado en BD" : "Profesor agregado");
+      notify("Profesor agregado");
     }
     setShowForm(false);
     setShowAsignaturasDropdown(false);
@@ -2218,7 +2255,7 @@ function ProfesoresAdmin({ currentUser, users, setUsers, asignaturas, notify, pr
             {profes.map(u => {
               const asignaturasNombres = (u.asignaturasIds || []).map(id => asignaturas.find(a => a.id === id)?.nombre).filter(Boolean);
               return (
-                <tr key={u.id} style={{ borderBottom: "1px solid #f5f5f5", opacity: u.active ? 1 : 0.55 }}>
+                <tr key={`${u.id}-${u.username}`} style={{ borderBottom: "1px solid #f5f5f5", opacity: u.active ? 1 : 0.55 }}>
                   <td style={{ padding: "10px 10px" }}>{u.name}</td>
                   <td style={{ padding: "10px 10px", color: "#555" }}>{asignaturasNombres.length ? asignaturasNombres.join(", ") : "Sin asignaturas"}</td>
                   <td style={{ padding: "10px 10px" }}><span style={{ fontSize: 11, background: u.active ? "#FBE5E5" : "#f5f5f5", color: u.active ? "#511013" : "#888", padding: "3px 8px", borderRadius: 20, fontWeight: 700 }}>{u.active ? "Activo" : "Inactivo"}</span></td>
@@ -2272,18 +2309,28 @@ function AsignaturasAdmin({ currentUser, asignaturas, setAsignaturas, programas,
 
     if (editing) {
       const { data: updated, error } = await supabaseUpdateRow("asignaturas", editing, nextAsignatura);
-      const next = asignaturas.map(a => a.id === editing ? { ...a, ...nextAsignatura, id: editing, ...(updated || {}) } : a);
+      if (error || !updated) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const next = asignaturas.map(a => a.id === editing ? { ...a, ...updated } : a);
       setAsignaturas(next);
-      notify(error ? `Asignatura actualizada: ${error.message || "Error BD"}` : "Asignatura actualizada", error ? "error" : "success");
+      notify("Asignatura actualizada", "success");
     } else {
-      const { data: inserted, error } = await supabaseInsertRow("asignaturas", {
+      const nueva = {
         ...nextAsignatura,
+        id: getNextIntegerId(asignaturas),
         createdById: currentUser.role === "laboratorio" ? currentUser.id : null,
-      });
-      const createdRow = inserted ? { ...inserted } : { ...nextAsignatura, createdById: currentUser.role === "laboratorio" ? currentUser.id : null, id: Date.now() };
+      };
+      const { data: inserted, error } = await supabaseInsertRow("asignaturas", nueva);
+      if (error || !inserted) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const createdRow = inserted;
       const next = [...asignaturas, createdRow];
       setAsignaturas(next);
-      notify(error ? `Asignatura agregada: ${error.message || "Error BD"}` : "Asignatura agregada", error ? "error" : "success");
+      notify("Asignatura agregada", "success");
     }
     setShowForm(false);
   };
@@ -2434,20 +2481,28 @@ function PracticasAdmin({ currentUser, practicasCatalogo, setPracticasCatalogo, 
 
     if (editing) {
       const { data: updated, error } = await supabaseUpdateRow("practicas", editing, nextPractica);
-
-      const next = practicasCatalogo.map(p => p.id === editing ? { ...nextPractica, id: editing, ...(updated || {}) } : p);
+      if (error || !updated) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const next = practicasCatalogo.map(p => p.id === editing ? { ...p, ...updated } : p);
       setPracticasCatalogo(next);
-      notify(error ? `Práctica actualizada: ${error.message || "Error BD"}` : "Práctica actualizada", error ? "error" : "success");
+      notify("Práctica actualizada", "success");
     } else {
-      const { data: inserted, error } = await supabaseInsertRow("practicas", {
+      const nueva = {
         ...nextPractica,
+        id: getNextIntegerId(practicasCatalogo),
         createdById: currentUser.role === "laboratorio" ? currentUser.id : null,
-      });
-
-      const createdRow = inserted ? { ...inserted } : { ...nextPractica, createdById: currentUser.role === "laboratorio" ? currentUser.id : null, id: Date.now() };
+      };
+      const { data: inserted, error } = await supabaseInsertRow("practicas", nueva);
+      if (error || !inserted) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const createdRow = inserted;
       const next = [...practicasCatalogo, createdRow];
       setPracticasCatalogo(next);
-      notify(error ? `Práctica agregada: ${error.message || "Error BD"}` : "Práctica agregada", error ? "error" : "success");
+      notify("Práctica agregada", "success");
     }
     setShowForm(false);
   };
@@ -2571,17 +2626,25 @@ function UsuariosAdmin({ users, setUsers, notify }) {
   const openEdit = (u) => { setForm({ ...u }); setEditing(u.id); setShowForm(true); };
   const save = async () => {
     if (!form.name || !form.username) return;
-    const row = { ...form, id: editing || Date.now() };
+    const row = { ...form, id: editing || getNextIntegerId(users) };
     if (editing) {
       const { data: updated, error } = await supabaseUpdateRow("profiles", editing, row);
-      const next = users.map(u => u.id === editing ? (updated ? { ...u, ...updated } : row) : u);
+      if (error || !updated) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const next = users.map(u => u.id === editing ? { ...u, ...updated } : u);
       setUsers(next);
-      notify(error ? "Usuario actualizado localmente, no guardado en BD" : "Usuario actualizado");
+      notify("Usuario actualizado");
     } else {
       const { data: inserted, error } = await supabaseInsertRow("profiles", row);
-      const created = inserted ? inserted : row;
+      if (error || !inserted) {
+        notify(error?.message ? `No se pudo guardar: ${error.message}` : "No se pudo confirmar el guardado en la BD.", "error");
+        return;
+      }
+      const created = inserted;
       setUsers(prev => [...prev, created]);
-      notify(error ? "Usuario creado localmente, no guardado en BD" : "Usuario creado");
+      notify("Usuario creado");
     }
     setShowForm(false);
   };
@@ -3464,6 +3527,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
   const [expandedProgIds, setExpandedProgIds] = useState([]);
   const [editingProgId, setEditingProgId] = useState(null);
   const [editCapacity, setEditCapacity] = useState({ numAlumnos: "", numEquipos: "" });
+  const [detailProgramacion, setDetailProgramacion] = useState(null);
 
   const handleValidar = (progId) => {
     const prog = programaciones.find(p => p.id === progId);
@@ -3768,9 +3832,9 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                             Validar
                           </button>
                         ) : null}
-                        <button onClick={() => setExpandedProgIds(prev => prev.includes(prog.id) ? prev.filter(id => id !== prog.id) : [...prev, prog.id])}
-                          style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #ddd", background: isExpanded ? "#f5f5f5" : "white", color: "#555", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
-                          {isExpanded ? "Ocultar" : "Ver detalles"}
+                        <button onClick={() => setDetailProgramacion({ ...prog, practicas: (Array.isArray(prog.practicas) ? prog.practicas : []).map(pr => ({ ...pr })) })}
+                          style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #ddd", background: "white", color: "#555", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                          Ver detalles
                         </button>
                       </div>
                     </td>
@@ -3966,6 +4030,28 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {detailProgramacion && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative", paddingRight: 80 }}>
+            <ProgramacionDetail
+              prog={detailProgramacion}
+              users={users}
+              laboratorios={laboratorios}
+              programas={programas}
+              onBack={() => setDetailProgramacion(null)}
+              setProgramaciones={setProgramaciones}
+              programaciones={programaciones}
+              notify={notify}
+              readOnly={false}
+              isEdit={detailProgramacion?.isEdit}
+              currentUser={currentUser}
+              practicasCatalogo={[]}
+              asignaturas={asignaturas}
+            />
+          </div>
         </div>
       )}
 
