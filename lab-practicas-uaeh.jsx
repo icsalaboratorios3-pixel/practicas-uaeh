@@ -471,6 +471,10 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
   const role = currentUser?.role || "profesor";
   const rc = colors[role] || colors.profesor;
 
+  useEffect(() => {
+    if (activeSection === "informe") setActiveSection("dashboard");
+  }, [activeSection, setActiveSection]);
+
   const navItems = useMemo(() => {
     if (role === "admin") return [
       { id: "dashboard", label: "Panel General", icon: "" },
@@ -483,7 +487,6 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
       { id: "practicas", label: "Prácticas", icon: "" },
       { id: "usuarios", label: "Usuarios", icon: "" },
       { id: "conflictos", label: "Conflictos de Horario", icon: "" },
-      { id: "informe", label: "Informe General", icon: "▣" },
     ];
     if (role === "profesor") return [
       { id: "dashboard", label: "Mi Panel", icon: "" },
@@ -553,8 +556,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
 
       <main style={{ marginLeft: 240, flex: 1, overflowY: "auto", padding: "2rem", background: "#fafafa", minWidth: 0 }}>
         {activeSection === "dashboard" && <DashboardSection currentUser={currentUser} programaciones={programaciones} laboratorios={laboratorios} users={users} responsableLaboratorios={responsableLaboratorios} />}
-        {activeSection === "informe" && role === "admin" && <AdminInformeSection programaciones={programaciones} laboratorios={laboratorios} users={users} programas={programas} asignaturas={asignaturas} practicasCatalogo={practicasCatalogo} />}
-        {activeSection === "programaciones" && role === "admin" && <ProgramacionesAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} programas={programas} setProgramaciones={setProgramaciones} notify={notify} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />}
+        {activeSection === "programaciones" && role === "admin" && <ProgramacionesAdmin currentUser={currentUser} programaciones={programaciones} users={users} laboratorios={laboratorios} programas={programas} setProgramaciones={setProgramaciones} notify={notify} practicasCatalogo={practicasCatalogo} asignaturas={asignaturas} />}
         {activeSection === "asistencias" && role === "admin" && <AsistenciasAdmin programaciones={programaciones} users={users} laboratorios={laboratorios} />}
         {activeSection === "laboratorios" && role === "admin" && <LaboratoriosAdmin laboratorios={laboratorios} setLaboratorios={setLaboratorios} users={users} responsableLaboratorios={responsableLaboratorios} setResponsableLaboratorios={setResponsableLaboratorios} notify={notify} />}
         {activeSection === "programas" && role === "admin" && <ProgramasAdmin programas={programas} setProgramas={setProgramas} laboratorios={laboratorios} programaLaboratorios={programaLaboratorios} setProgramaLaboratorios={setProgramaLaboratorios} notify={notify} />}
@@ -648,6 +650,11 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
     ? myProgramaciones.filter(p => p.laboratorioId === Number(selectedLab))
     : myProgramaciones;
 
+  const getAttendancePractice = (prog) => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)) : [];
+    return practicas.find(pr => pr.fecha === today) || practicas.find(pr => pr.fecha >= today);
+  };
+
   const toggleAttendance = async (progId, field) => {
     const currentProg = programaciones.find(p => p.id === progId);
     if (!currentProg) return notify("Programación no encontrada.", "error");
@@ -656,8 +663,13 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
       return;
     }
 
-    const nextValue = !Boolean(currentProg[field]);
-    const patch = { [field]: nextValue };
+    const practice = getAttendancePractice(currentProg);
+    if (!practice) return notify("Práctica no encontrada.", "error");
+    const nextValue = !Boolean(practice[field]);
+    const updatedPracticas = (Array.isArray(currentProg.practicas) ? currentProg.practicas : []).map(pr =>
+      pr.id === practice.id ? { ...pr, [field]: nextValue } : pr
+    );
+    const patch = { practicas: updatedPracticas };
     const { data: updated, error } = await supabaseUpdateRow("programaciones", progId, patch);
     if (error) {
       notify("Error guardando la asistencia. Intenta de nuevo.", "error");
@@ -720,7 +732,7 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
     const practiceToUpdate = practicas.find(p => p.id === practiceId);
     if (!practiceToUpdate) return notify("Práctica no encontrada.", "error");
 
-    const wasMarked = Boolean(practiceToUpdate[field] || prog[field]);
+    const wasMarked = Boolean(practiceToUpdate[field]);
     const nextValue = !wasMarked;
     const updatedPracticas = practicas.map(p => {
       if (p.id === practiceId) {
@@ -730,7 +742,6 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
     });
 
     const patch = { practicas: updatedPracticas };
-    if (prog[field] && !practiceToUpdate[field]) patch[field] = nextValue;
     const { data: updated, error } = await supabaseUpdateRow("programaciones", programacionId, patch);
     if (error) {
       notify("Error guardando la asistencia de práctica. Intenta de nuevo.", "error");
@@ -817,8 +828,8 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
                     const { programacion, practice } = row;
                     const prof = users.find(u => u.id === programacion.profesorId);
                     const lab = laboratorios.find(l => l.id === programacion.laboratorioId);
-                    const profMarked = practice.asistenciaProfesor || programacion.asistenciaProfesor;
-                    const labMarked = practice.asistenciaResponsable || programacion.asistenciaResponsable;
+                    const profMarked = Boolean(practice.asistenciaProfesor);
+                    const labMarked = Boolean(practice.asistenciaResponsable);
                     return (
                       <tr key={`${programacion.id}-${practice.id}`} style={{ borderBottom: '1px solid #eee' }}>
                         <td style={{ padding: '8px' }}>{fmtDate(practice.fecha)}</td>
@@ -878,7 +889,10 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
                   const prof = users.find(u => u.id === prog.profesorId);
                   const lab = laboratorios.find(l => l.id === prog.laboratorioId);
                   const practiceInfo = getPracticeInfo(prog);
-                  const confirmed = prog.asistenciaProfesor && prog.asistenciaResponsable;
+                  const attendancePractice = getAttendancePractice(prog);
+                  const profMarked = Boolean(attendancePractice?.asistenciaProfesor);
+                  const labMarked = Boolean(attendancePractice?.asistenciaResponsable);
+                  const confirmed = profMarked && labMarked;
                   return (
                     <tr key={prog.id} style={{ borderBottom: '1px solid #eee', background: confirmed ? '#E8F5E9' : 'white' }}>
                       <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.asignatura}</td>
@@ -887,36 +901,36 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
                       <td style={{ padding: '10px', verticalAlign: 'top' }}>{lab?.nombre || '—'}</td>
                       <td style={{ padding: '10px', verticalAlign: 'top' }}>{practiceInfo.label}: <strong>{practiceInfo.date}</strong></td>
                       <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaProfesor ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaProfesor ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
-                          {prog.asistenciaProfesor ? 'Marcado' : 'Pendiente'}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: profMarked ? '#C8E6C9' : '#FFF4E8', color: profMarked ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                          {profMarked ? 'Marcado' : 'Pendiente'}
                         </span>
                       </td>
                       <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaResponsable ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaResponsable ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
-                          {prog.asistenciaResponsable ? 'Confirmado' : 'Pendiente'}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: labMarked ? '#C8E6C9' : '#FFF4E8', color: labMarked ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                          {labMarked ? 'Confirmado' : 'Pendiente'}
                         </span>
                       </td>
                       <td style={{ padding: '10px', verticalAlign: 'top' }}>
                         {confirmed ? (
                           <span style={{ color: '#2E7D32', fontWeight: 700 }}>Asistencia confirmada</span>
                         ) : (
-                          <span style={{ color: '#E8641C', fontWeight: 700 }}>{prog.asistenciaProfesor || prog.asistenciaResponsable ? 'Parcial' : 'Sin registrar'}</span>
+                          <span style={{ color: '#E8641C', fontWeight: 700 }}>{profMarked || labMarked ? 'Parcial' : 'Sin registrar'}</span>
                         )}
                       </td>
                       <td style={{ padding: '10px', verticalAlign: 'top' }}>
                         {role === 'profesor' ? (
                           <button
                             onClick={() => toggleAttendance(prog.id, 'asistenciaProfesor')}
-                            style={{ minWidth: 120, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaProfesor ? '#C8E6C9' : '#511013', color: 'white', cursor: 'pointer', opacity: 1, fontWeight: 700 }}
+                            style={{ minWidth: 120, padding: '8px 12px', borderRadius: 8, border: 'none', background: profMarked ? '#C8E6C9' : '#511013', color: 'white', cursor: 'pointer', opacity: 1, fontWeight: 700 }}
                           >
-                            {prog.asistenciaProfesor ? 'Desmarcar' : 'Marcar presente'}
+                            {profMarked ? 'Desmarcar' : 'Marcar presente'}
                           </button>
                         ) : (
                           <button
                             onClick={() => toggleAttendance(prog.id, 'asistenciaResponsable')}
-                            style={{ minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: prog.asistenciaResponsable ? '#C8E6C9' : '#F39200', color: 'white', cursor: 'pointer', opacity: 1, fontWeight: 700 }}
+                            style={{ minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: labMarked ? '#C8E6C9' : '#F39200', color: 'white', cursor: 'pointer', opacity: 1, fontWeight: 700 }}
                           >
-                            {prog.asistenciaResponsable ? 'Desmarcar' : 'Confirmar llegada'}
+                            {labMarked ? 'Desmarcar' : 'Confirmar llegada'}
                           </button>
                         )}
                       </td>
@@ -1020,7 +1034,9 @@ function AdminInformeSection({ programaciones = [], laboratorios = [], users = [
   const totalPracticasCatalogo = practicasCatalogo.filter(p => p.activo).length;
   const programacionesValidadas = programaciones.filter(p => p.validada).length;
   const programacionesPendientes = programaciones.filter(p => !p.validada).length;
-  const asistenciasRegistradas = programaciones.filter(p => p.asistenciaProfesor || p.asistenciaResponsable).length;
+  const asistenciasRegistradas = programaciones.filter(p =>
+    (Array.isArray(p.practicas) ? p.practicas : []).some(pr => pr.asistenciaProfesor || pr.asistenciaResponsable)
+  ).length;
 
   const resumenLabs = laboratorios
     .filter(l => l.activo)
@@ -1123,6 +1139,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
   const totalPracticas = misProg.reduce((s, p) => s + safePracticas(p).length, 0);
   const progValidadas = misProg.filter(p => p.validada).length;
   const progPendientes = misProg.filter(p => !p.validada).length;
+  const reprogramacionesPendientes = misProg.filter(p => p.validada && p.reprogramacionPendiente).length;
   const today = new Date().toISOString().split("T")[0];
   const proximas = misProg.flatMap(p => safePracticas(p).map(pr => ({ ...pr, prog: p }))).filter(pr => pr.fecha >= today).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 5);
 
@@ -1130,14 +1147,19 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
     <div>
       <SectionHeader title={`Bienvenido/a, ${getUserShortName(currentUser?.name)}`} subtitle={`Periodo semestral activo - Sistema de Gestión de Prácticas de Laboratorio`} />
       
-      {role === "laboratorio" && progPendientes > 0 && (
+      {role === "laboratorio" && (progPendientes > 0 || reprogramacionesPendientes > 0) && (
         <Card style={{ marginBottom: "1.5rem", background: "#FFFBF7", border: "2px solid #F39200", padding: "14px 16px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
             <div style={{ fontSize: 24, color: "#F39200", fontWeight: 700 }}>⚠</div>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#F39200", margin: "0 0 6px" }}>Tienes {progPendientes} programación{progPendientes !== 1 ? "es" : ""} pendiente{progPendientes !== 1 ? "s" : ""} de validar</p>
+              {progPendientes > 0 && (
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#F39200", margin: "0 0 6px" }}>Tienes {progPendientes} programación{progPendientes !== 1 ? "es" : ""} pendiente{progPendientes !== 1 ? "s" : ""} de validar</p>
+              )}
+              {reprogramacionesPendientes > 0 && (
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#E8641C", margin: "0 0 6px" }}>Tienes {reprogramacionesPendientes} solicitud{reprogramacionesPendientes !== 1 ? "es" : ""} de reprogramación pendiente{reprogramacionesPendientes !== 1 ? "s" : ""} de revisar</p>
+              )}
               <p style={{ fontSize: 12, color: "#D97E15", margin: 0, lineHeight: 1.4 }}>
-                Como responsable del laboratorio, debes revisar y validar las programaciones de los profesores usando tu usuario y contraseña. Esto reemplaza la firma física tradicional.
+                Como responsable del laboratorio, debes revisar las programaciones pendientes y las solicitudes de reprogramación de los profesores.
               </p>
             </div>
           </div>
@@ -1199,7 +1221,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
 }
 
 //Función para mostrar la sección de programaciones para el administrador del sistema-----------------------------
-function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, setProgramaciones, notify, practicasCatalogo = [], asignaturas = [] }) {
+function ProgramacionesAdmin({ currentUser, programaciones, users, laboratorios, programas, setProgramaciones, notify, practicasCatalogo = [], asignaturas = [] }) {
   const [filter, setFilter] = useState("");
   const [programaFilter, setProgramaFilter] = useState("");
   const [asignaturaFilter, setAsignaturaFilter] = useState("");
@@ -1301,6 +1323,7 @@ function ProgramacionesAdmin({ programaciones, users, laboratorios, programas, s
               notify={notify}
               readOnly={false}
               isEdit={selected?.isEdit}
+              currentUser={currentUser}
               practicasCatalogo={practicasCatalogo}
               asignaturas={asignaturas}
             />
@@ -1328,6 +1351,12 @@ function AsistenciasAdmin({ programaciones = [], users = [], laboratorios = [] }
     const selected = practiceToday || nextPractice;
     if (!selected) return "Sin práctica próxima";
     return `${fmtDate(selected.fecha)} • ${selected.nombre}`;
+  };
+
+  const getAttendancePractice = (prog) => {
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)) : [];
+    const today = new Date().toISOString().split("T")[0];
+    return practicas.find(pr => pr.fecha === today) || practicas.find(pr => pr.fecha >= today);
   };
 
   return (
@@ -1364,7 +1393,10 @@ function AsistenciasAdmin({ programaciones = [], users = [], laboratorios = [] }
                 const lab = laboratorios.find(l => l.id === prog.laboratorioId);
                 const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
                 const practiceInfo = getPracticeInfo(prog);
-                const status = prog.asistenciaProfesor && prog.asistenciaResponsable ? 'Completa' : (prog.asistenciaProfesor || prog.asistenciaResponsable ? 'Parcial' : 'Sin registrar');
+                const attendancePractice = getAttendancePractice(prog);
+                const profMarked = Boolean(attendancePractice?.asistenciaProfesor);
+                const labMarked = Boolean(attendancePractice?.asistenciaResponsable);
+                const status = profMarked && labMarked ? 'Completa' : (profMarked || labMarked ? 'Parcial' : 'Sin registrar');
                 return (
                   <tr key={prog.id} style={{ borderBottom: '1px solid #eee', background: status === 'Completa' ? '#E8F5E9' : 'white' }}>
                     <td style={{ padding: '10px', verticalAlign: 'top' }}>{prof?.name || '—'}</td>
@@ -1374,13 +1406,13 @@ function AsistenciasAdmin({ programaciones = [], users = [], laboratorios = [] }
                     <td style={{ padding: '10px', verticalAlign: 'top' }}>{prog.periodo}</td>
                     <td style={{ padding: '10px', verticalAlign: 'top' }}>{practiceInfo}</td>
                     <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaProfesor ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaProfesor ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
-                        {prog.asistenciaProfesor ? 'Sí' : 'No'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: profMarked ? '#C8E6C9' : '#FFF4E8', color: profMarked ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                        {profMarked ? 'Sí' : 'No'}
                       </span>
                     </td>
                     <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: prog.asistenciaResponsable ? '#C8E6C9' : '#FFF4E8', color: prog.asistenciaResponsable ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
-                        {prog.asistenciaResponsable ? 'Sí' : 'No'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: labMarked ? '#C8E6C9' : '#FFF4E8', color: labMarked ? '#2E7D32' : '#F39200', fontWeight: 700, fontSize: 12 }}>
+                        {labMarked ? 'Sí' : 'No'}
                       </span>
                     </td>
                     <td style={{ padding: '10px', verticalAlign: 'top', fontWeight: 700, color: status === 'Completa' ? '#2E7D32' : status === 'Parcial' ? '#E8641C' : '#777' }}>
