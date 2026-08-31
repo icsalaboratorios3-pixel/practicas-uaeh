@@ -650,9 +650,15 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
     ? myProgramaciones.filter(p => p.laboratorioId === Number(selectedLab))
     : myProgramaciones;
 
+  const getEffectivePracticeDate = (pr) => pr?.reprogramacion || pr?.fecha;
+
   const getAttendancePractice = (prog) => {
-    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)) : [];
-    return practicas.find(pr => pr.fecha === today) || practicas.find(pr => pr.fecha >= today);
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => {
+      const dateA = getEffectivePracticeDate(a);
+      const dateB = getEffectivePracticeDate(b);
+      return String(dateA || "").localeCompare(String(dateB || ""));
+    }) : [];
+    return practicas.find(pr => getEffectivePracticeDate(pr) === today) || practicas.find(pr => getEffectivePracticeDate(pr) >= today);
   };
 
   const toggleAttendance = async (progId, field) => {
@@ -682,21 +688,27 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
 
   const pad = (value) => String(value).padStart(2, "0");
   const getPracticeInfo = (prog) => {
-    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)) : [];
-    const practiceToday = practicas.find(pr => pr.fecha === today);
-    const nextPractice = practicas.find(pr => pr.fecha >= today);
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => {
+      const dateA = getEffectivePracticeDate(a);
+      const dateB = getEffectivePracticeDate(b);
+      return String(dateA || "").localeCompare(String(dateB || ""));
+    }) : [];
+    const practiceToday = practicas.find(pr => getEffectivePracticeDate(pr) === today);
+    const nextPractice = practicas.find(pr => getEffectivePracticeDate(pr) >= today);
     const selected = practiceToday || nextPractice;
     if (!selected) return { label: "Sin práctica próxima", date: "-", dateRaw: "9999-12-31" };
-    return { label: practiceToday ? "Práctica de hoy" : "Próxima práctica", date: `${fmtDate(selected.fecha)} • ${selected.nombre}`, dateRaw: selected.fecha };
+    const effectiveDate = getEffectivePracticeDate(selected);
+    return { label: practiceToday ? "Práctica de hoy" : "Próxima práctica", date: `${fmtDate(effectiveDate)} • ${selected.nombre}`, dateRaw: effectiveDate };
   };
 
   const isPracticeDay = (prog) => {
     const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
     // Allow marking attendance during the entire week of the practice (Mon-Sun)
     return practicas.some(pr => {
-      if (!pr.fecha) return false;
+      const effectiveDate = getEffectivePracticeDate(pr);
+      if (!effectiveDate) return false;
       try {
-        const practiceDate = new Date(pr.fecha + "T00:00:00");
+        const practiceDate = new Date(effectiveDate + "T00:00:00");
         const todayDate = new Date(today + "T00:00:00");
         // compute Monday of practice week (treat Monday as first day)
         const practiceDay = practiceDate.getDay(); // 0 (Sun) - 6 (Sat)
@@ -717,12 +729,15 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
   // Past practices (fecha < today) flattened list to allow marking missed attendances
   const pastPractices = displayedProgramaciones.flatMap(prog => {
     const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
-    return practicas.filter(pr => pr.fecha && pr.fecha < today).map(pr => ({
+    return practicas.filter(pr => {
+      const effectiveDate = getEffectivePracticeDate(pr);
+      return effectiveDate && effectiveDate < today;
+    }).map(pr => ({
       programacionId: prog.id,
       programacion: prog,
       practice: pr,
     }));
-  }).sort((a, b) => b.practice.fecha.localeCompare(a.practice.fecha));
+  }).sort((a, b) => String(getEffectivePracticeDate(b.practice) || "").localeCompare(String(getEffectivePracticeDate(a.practice) || "")));
 
   const markPastPractice = async (programacionId, practiceId, field) => {
     const prog = programaciones.find(p => p.id === programacionId);
@@ -1343,20 +1358,26 @@ function AsistenciasAdmin({ programaciones = [], users = [], laboratorios = [] }
     return !filter || [p.asignatura, p.periodo, p.grupo, prof?.name, lab?.nombre].join(" ").toLowerCase().includes(filter.toLowerCase());
   });
 
+  const getEffectivePracticeDate = (pr) => pr?.reprogramacion || pr?.fecha;
+
   const getPracticeInfo = (prog) => {
     const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
     const today = new Date().toISOString().split("T")[0];
-    const practiceToday = practicas.find(pr => pr.fecha === today);
-    const nextPractice = practicas.find(pr => pr.fecha >= today);
+    const practiceToday = practicas.find(pr => getEffectivePracticeDate(pr) === today);
+    const nextPractice = practicas.find(pr => getEffectivePracticeDate(pr) >= today);
     const selected = practiceToday || nextPractice;
     if (!selected) return "Sin práctica próxima";
-    return `${fmtDate(selected.fecha)} • ${selected.nombre}`;
+    return `${fmtDate(getEffectivePracticeDate(selected))} • ${selected.nombre}`;
   };
 
   const getAttendancePractice = (prog) => {
-    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)) : [];
+    const practicas = Array.isArray(prog.practicas) ? prog.practicas.slice().sort((a, b) => {
+      const dateA = getEffectivePracticeDate(a);
+      const dateB = getEffectivePracticeDate(b);
+      return String(dateA || "").localeCompare(String(dateB || ""));
+    }) : [];
     const today = new Date().toISOString().split("T")[0];
-    return practicas.find(pr => pr.fecha === today) || practicas.find(pr => pr.fecha >= today);
+    return practicas.find(pr => getEffectivePracticeDate(pr) === today) || practicas.find(pr => getEffectivePracticeDate(pr) >= today);
   };
 
   return (

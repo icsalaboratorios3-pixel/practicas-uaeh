@@ -229,5 +229,5 @@ export default function ChatbotWidget() {
   );
 
   // return para mostrar la sección de chatbot en el menú lateral
-  return null;
+  return ChatBotHeron;
 }
