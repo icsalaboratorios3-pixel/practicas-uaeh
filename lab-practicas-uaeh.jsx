@@ -640,14 +640,16 @@ function Footer() {
 function PaseListaSection({ currentUser, programaciones = [], users = [], laboratorios = [], responsableLaboratorios = [], setProgramaciones, notify }) {
   const role = currentUser?.role;
   const today = new Date().toISOString().split("T")[0];
-  const labIds = responsableLaboratorios.filter(rl => rl.responsableId === currentUser.id).map(rl => rl.laboratorioId);
+  const labIds = responsableLaboratorios
+    .filter(rl => String(rl.responsableId ?? rl.responsable_id) === String(currentUser.id))
+    .map(rl => Number(rl.laboratorioId ?? rl.laboratorio_id));
   const [selectedLab, setSelectedLab] = useState(labIds.length === 1 ? labIds[0] : "");
   const [showPast, setShowPast] = useState(false);
   const myProgramaciones = role === "profesor"
     ? programaciones.filter(p => String(p.profesorId) === String(currentUser.id))
-    : programaciones.filter(p => labIds.includes(p.laboratorioId));
+    : programaciones.filter(p => labIds.includes(Number(p.laboratorioId ?? p.laboratorio_id)));
   const displayedProgramaciones = selectedLab
-    ? myProgramaciones.filter(p => p.laboratorioId === Number(selectedLab))
+    ? myProgramaciones.filter(p => Number(p.laboratorioId ?? p.laboratorio_id) === Number(selectedLab))
     : myProgramaciones;
 
   const getEffectivePracticeDate = (pr) => pr?.reprogramacion || pr?.fecha;
@@ -783,7 +785,7 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
                 style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #ddd", fontSize: 14 }}>
                 <option value="">Todos los laboratorios</option>
                 {laboratorios
-                  .filter(lab => labIds.includes(lab.id))
+                  .filter(lab => labIds.includes(Number(lab.id)))
                   .map(lab => <option key={lab.id} value={lab.id}>{lab.nombre}</option>)}
               </select>
             </div>
@@ -847,7 +849,7 @@ function PaseListaSection({ currentUser, programaciones = [], users = [], labora
                     const labMarked = Boolean(practice.asistenciaResponsable);
                     return (
                       <tr key={`${programacion.id}-${practice.id}`} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '8px' }}>{fmtDate(practice.fecha)}</td>
+                        <td style={{ padding: '8px' }}>{fmtDate(getEffectivePracticeDate(practice))}</td>
                         <td style={{ padding: '8px' }}>{programacion.asignatura}</td>
                         <td style={{ padding: '8px' }}>{programacion.grupo}</td>
                         <td style={{ padding: '8px' }}>{prof?.name || '—'}</td>
@@ -1147,16 +1149,21 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
     ? programaciones.filter(p => p.profesorId === currentUser.id)
     : role === "laboratorio"
       ? programaciones.filter(p => responsableLaboratorios
-          .filter(rl => rl.responsableId === currentUser.id)
-          .map(rl => rl.laboratorioId)
-          .includes(p.laboratorioId))
+          .filter(rl => String(rl.responsableId ?? rl.responsable_id) === String(currentUser.id))
+          .map(rl => Number(rl.laboratorioId ?? rl.laboratorio_id))
+          .includes(Number(p.laboratorioId ?? p.laboratorio_id)))
       : programaciones;
   const totalPracticas = misProg.reduce((s, p) => s + safePracticas(p).length, 0);
   const progValidadas = misProg.filter(p => p.validada).length;
   const progPendientes = misProg.filter(p => !p.validada).length;
   const reprogramacionesPendientes = misProg.filter(p => p.validada && p.reprogramacionPendiente).length;
   const today = new Date().toISOString().split("T")[0];
-  const proximas = misProg.flatMap(p => safePracticas(p).map(pr => ({ ...pr, prog: p }))).filter(pr => pr.fecha >= today).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 5);
+  const getEffectivePracticeDate = (practice) => practice?.reprogramacion || practice?.fecha;
+  const proximas = misProg
+    .flatMap(p => safePracticas(p).map(pr => ({ ...pr, prog: p })))
+    .filter(pr => getEffectivePracticeDate(pr) >= today)
+    .sort((a, b) => getEffectivePracticeDate(a).localeCompare(getEffectivePracticeDate(b)))
+    .slice(0, 5);
 
   return (
     <div>
@@ -1220,7 +1227,7 @@ function DashboardSection({ currentUser, programaciones, laboratorios, users, re
                 const lab = laboratorios.find(l => l.id === pr.prog.laboratorioId);
                 return (
                   <tr key={i} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#511013" }}>{fmtDate(pr.fecha)}</td>
+                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#511013" }}>{fmtDate(getEffectivePracticeDate(pr))}</td>
                     <td style={{ padding: "8px 10px" }}><span style={{ fontSize: 11, background: "#cf3e46", color: "white", padding: "3px 8px", borderRadius: 4, marginRight: 6, fontWeight: 600 }}>#{pr.numero}</span>{pr.nombre}</td>
                     <td style={{ padding: "8px 10px", color: "#555" }}>{pr.prog.asignatura}</td>
                     {role !== "profesor" && <td style={{ padding: "8px 10px", color: "#555" }}>{prof?.name.split(" ").slice(-2).join(" ")}</td>}
@@ -1458,6 +1465,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
   const canEditPracticas = !isResponsibleLimitedEditor && (currentUser?.role === "admin" || currentUser?.role === "profesor");
   const [editMode, setEditMode] = useState(Boolean(isEdit) && canEditCurrentProgram);
   const [data, setData] = useState({ ...prog, practicas: (prog.practicas || []).map(p => ({ ...p })) });
+  const isTeacherReprogramming = currentUser?.role === "profesor" && Boolean(data?.reprogramacionAutorizada);
 
   useEffect(() => {
     setData({ ...prog, practicas: (prog.practicas || []).map(p => ({ ...p })) });
@@ -1740,7 +1748,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
                   ) : pr.nombre}
                 </td>
                 <td style={{ textAlign: "center", padding: "8px 10px" }}>
-                  {editMode && canEditPracticas ? <input type="date" value={pr.fecha} onChange={e => updatePractica(idx, "fecha", e.target.value)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} /> : <span style={{ color: "#511013", fontWeight: 600 }}>{fmtDate(pr.fecha)}</span>}
+                  {editMode && canEditPracticas ? <input type="date" value={pr.fecha} disabled={isTeacherReprogramming} onChange={e => updatePractica(idx, "fecha", e.target.value)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ddd", background: isTeacherReprogramming ? "#f3f3f3" : "white", color: isTeacherReprogramming ? "#777" : "#222", fontSize: 13 }} /> : <span style={{ color: "#511013", fontWeight: 600 }}>{fmtDate(pr.fecha)}</span>}
                 </td>
                 <td style={{ textAlign: "center", padding: "8px 10px" }}>
                   {editMode && canEditPracticas ? <input type="date" value={pr.reprogramacion} onChange={e => updatePractica(idx, "reprogramacion", e.target.value)} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} /> : (pr.reprogramacion ? <span style={{ color: "#F39200", fontWeight: 600 }}>{fmtDate(pr.reprogramacion)}</span> : <span style={{ color: "#ccc" }}></span>)}
@@ -2806,10 +2814,10 @@ function detectConflictos(programaciones, laboratorios) {
   for (let i = 0; i < programaciones.length; i++) {
     for (let j = i + 1; j < programaciones.length; j++) {
       const a = programaciones[i], b = programaciones[j];
-      if (a.laboratorioId !== b.laboratorioId || a.dia !== b.dia) continue;
+      if (Number(a.laboratorioId ?? a.laboratorio_id) !== Number(b.laboratorioId ?? b.laboratorio_id) || a.dia !== b.dia) continue;
       const startA = a.horaInicio, endA = a.horaFin, startB = b.horaInicio, endB = b.horaFin;
       if (startA < endB && startB < endA) {
-        conflictos.push({ a, b, lab: laboratorios.find(l => l.id === a.laboratorioId) });
+        conflictos.push({ a, b, lab: laboratorios.find(l => Number(l.id) === Number(a.laboratorioId ?? a.laboratorio_id)) });
       }
     }
   }
@@ -2823,14 +2831,16 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
   const programacionesNutricion = programaciones.filter(p => Number(p.programaId ?? p.programa_id) === NUTRICION_PROGRAMA_ID);
   const todos = detectConflictos(programacionesNutricion, laboratorios);
   const misLabs = currentUser.role === "laboratorio"
-    ? responsableLaboratorios.filter(rl => rl.responsableId === currentUser.id).map(rl => rl.laboratorioId)
+    ? responsableLaboratorios
+        .filter(rl => String(rl.responsableId ?? rl.responsable_id) === String(currentUser.id))
+        .map(rl => Number(rl.laboratorioId ?? rl.laboratorio_id))
     : [];
-  const availableLabs = laboratorios.filter(l => misLabs.includes(l.id));
+  const availableLabs = laboratorios.filter(l => misLabs.includes(Number(l.id)));
   const misProg = currentUser.role === "laboratorio"
-    ? programaciones.filter(p => misLabs.includes(p.laboratorioId))
+    ? programaciones.filter(p => misLabs.includes(Number(p.laboratorioId ?? p.laboratorio_id)))
     : [];
   const filteredProg = currentUser.role === "laboratorio"
-    ? misProg.filter(p => !selectedLab || p.laboratorioId === selectedLab)
+    ? misProg.filter(p => !selectedLab || Number(p.laboratorioId ?? p.laboratorio_id) === Number(selectedLab))
         .slice()
         .sort((a, b) => {
           const labA = laboratorios.find(l => l.id === a.laboratorioId)?.nombre || "";
@@ -2843,7 +2853,7 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
   
   let conflictos = todos;
   if (currentUser.role === "laboratorio") {
-    conflictos = todos.filter(c => misLabs.includes(c.a.laboratorioId) || misLabs.includes(c.b.laboratorioId));
+    conflictos = todos.filter(c => misLabs.includes(Number(c.a.laboratorioId ?? c.a.laboratorio_id)) || misLabs.includes(Number(c.b.laboratorioId ?? c.b.laboratorio_id)));
   }
 
   const normalizeDayName = (value) => value?.toLowerCase().normalize("NFD").replace(/[-]|[ -]|[-]/g, "").replace(/[ -]/g, "").replace(/[ -]/g, "").replace(/[ -]/g, "").replace(/[\u0300-\u036f]/g, "") || "";
@@ -2853,13 +2863,14 @@ function ConflictosSection({ programaciones, laboratorios, users, currentUser, r
   };
   const getPracticeForDay = (prog, day) => {
     const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
-    const sorted = practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const getEffectivePracticeDate = (practice) => practice?.reprogramacion || practice?.fecha;
+    const sorted = practicas.slice().sort((a, b) => String(getEffectivePracticeDate(a) || "").localeCompare(String(getEffectivePracticeDate(b) || "")));
     if (!sorted.length) return null;
     const today = new Date().toISOString().split("T")[0];
     const normalizedSelected = normalizeDayName(day);
-    const sameWeekday = sorted.find(pr => normalizeDayName(dayNameFromDate(pr.fecha)) === normalizedSelected && pr.fecha >= today);
+    const sameWeekday = sorted.find(pr => normalizeDayName(dayNameFromDate(getEffectivePracticeDate(pr))) === normalizedSelected && getEffectivePracticeDate(pr) >= today);
     if (sameWeekday) return sameWeekday;
-    const nextPractice = sorted.find(pr => pr.fecha >= today);
+    const nextPractice = sorted.find(pr => getEffectivePracticeDate(pr) >= today);
     if (nextPractice) return nextPractice;
     return sorted[0];
   };
@@ -3569,8 +3580,10 @@ function ValidacionModal({ prog, responsable, onValidate, onCancel, users }) {
 }
 
 function CalendarioLaboratorio({ currentUser, programaciones, users, programas, laboratorios, asignaturas = [], setProgramaciones, notify, responsableLaboratorios }) {
-  const misLabIds = responsableLaboratorios.filter(rl => rl.responsableId === currentUser.id).map(rl => rl.laboratorioId);
-  const misProg = programaciones.filter(p => misLabIds.includes(p.laboratorioId));
+  const misLabIds = responsableLaboratorios
+    .filter(rl => String(rl.responsableId ?? rl.responsable_id) === String(currentUser.id))
+    .map(rl => Number(rl.laboratorioId ?? rl.laboratorio_id));
+  const misProg = programaciones.filter(p => misLabIds.includes(Number(p.laboratorioId ?? p.laboratorio_id)));
   const [programaFilter, setProgramaFilter] = useState("");
   const [laboratorioFilter, setLaboratorioFilter] = useState("");
   const [asignaturaFilter, setAsignaturaFilter] = useState("");
@@ -3685,14 +3698,14 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
   };
 
   const filteredProg = misProg.filter(prog => {
-    const matchesPrograma = !programaFilter || String(prog.programaId) === String(programaFilter);
-    const matchesLaboratorio = !laboratorioFilter || String(prog.laboratorioId) === String(laboratorioFilter);
+    const matchesPrograma = !programaFilter || String(prog.programaId ?? prog.programa_id) === String(programaFilter);
+    const matchesLaboratorio = !laboratorioFilter || String(prog.laboratorioId ?? prog.laboratorio_id) === String(laboratorioFilter);
     const matchesAsignatura = !asignaturaFilter || String(prog.asignaturaId ?? prog.asignatura_id ?? "") === String(asignaturaFilter);
 
     let estado = "pendiente";
-    if (prog.validada) estado = "validada";
-    else if (prog.reprogramacionPendiente) estado = "reprogramacion";
-    else if (prog.reprogramacionAutorizada) estado = "reprogramada";
+    if ((prog.reprogramacionPendiente || prog.reprogramacion_pendiente) && prog.validada) estado = "reprogramacion";
+    else if (prog.validada) estado = "validada";
+    else if (prog.reprogramacionAutorizada || prog.reprogramacion_autorizada) estado = "reprogramada";
     const matchesEstado = !estadoFilter || estado === estadoFilter;
 
     return matchesPrograma && matchesLaboratorio && matchesAsignatura && matchesEstado;
@@ -3705,13 +3718,14 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
     const dayNames = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
     return dayNames[new Date(date).getDay()];
   };
+  const getEffectivePracticeDate = (practice) => practice?.reprogramacion || practice?.fecha;
   const findPracticeForProgDay = (prog) => {
     const practicas = Array.isArray(prog.practicas) ? prog.practicas : [];
     const targetDay = normalizeText(prog.dia);
-    const sorted = practicas.slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
-    const match = sorted.find(pr => normalizeText(dayOfWeekFromDate(pr.fecha)) === targetDay && pr.fecha >= today);
+    const sorted = practicas.slice().sort((a, b) => String(getEffectivePracticeDate(a) || "").localeCompare(String(getEffectivePracticeDate(b) || "")));
+    const match = sorted.find(pr => normalizeText(dayOfWeekFromDate(getEffectivePracticeDate(pr))) === targetDay && getEffectivePracticeDate(pr) >= today);
     if (match) return match;
-    const nextByDate = sorted.find(pr => pr.fecha >= today);
+    const nextByDate = sorted.find(pr => getEffectivePracticeDate(pr) >= today);
     if (nextByDate) return nextByDate;
     return sorted.length ? sorted[sorted.length - 1] : null;
   };
@@ -3788,7 +3802,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
         <select value={laboratorioFilter} onChange={e => { setLaboratorioFilter(e.target.value); setAsignaturaFilter(""); }} style={{ padding: "10px 14px", borderRadius: 8, border: "1.5px solid #ddd", fontSize: 14, background: "white" }}>
           <option value="">Todos mis laboratorios</option>
           {laboratorios
-            .filter(l => l.activo && misLabIds.includes(l.id))
+            .filter(l => l.activo && misLabIds.includes(Number(l.id)))
             .sort(sortAlpha("nombre"))
             .map(l => (
               <option key={l.id} value={l.id}>{l.nombre}</option>
@@ -3847,7 +3861,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                 const programa = programas.find(pg => pg.id === prog.programaId);
                 const isExpanded = expandedProgIds.includes(prog.id);
                 return [
-                  <tr key={`prog-${prog.id}`} style={{ borderBottom: "1px solid #f0f0f0", background: prog.validada ? "#f0f0f0" : prog.practicas.some(p => p.fecha >= today) ? "#FFFBF7" : "white", opacity: prog.validada ? 0.7 : 1 }}>
+                  <tr key={`prog-${prog.id}`} style={{ borderBottom: "1px solid #f0f0f0", background: prog.validada ? "#f0f0f0" : prog.practicas.some(p => getEffectivePracticeDate(p) >= today) ? "#FFFBF7" : "white", opacity: prog.validada ? 0.7 : 1 }}>
                     <td style={{ padding: "10px 10px", fontWeight: 600, color: "#511013" }}>{prog.periodo}</td>
                     <td style={{ padding: "10px 10px", fontWeight: 600 }}>
                       <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{prog.practicas.length} prácticas</div>
@@ -3858,7 +3872,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                     <td style={{ padding: "10px 10px", color: "#555", fontSize: 12 }}>{lab?.nombre.replace("Laboratorio de ", "Lab. ")}</td>
                     <td style={{ padding: "10px 10px", textAlign: "center", fontWeight: 600 }}>{prog.numAlumnos}</td>
                     <td style={{ padding: "10px 10px" }}>
-                      {prog.reprogramacionPendiente && prog.validada ? (
+                      {(prog.reprogramacionPendiente || prog.reprogramacion_pendiente) && prog.validada ? (
                         <span style={{ fontSize: 11, background: "#FFF4E8", color: "#E8641C", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>Reprogramación solicitada</span>
                       ) : prog.reprogramacionAutorizada && !prog.validada ? (
                         <span style={{ fontSize: 11, background: "#C8E6C9", color: "#2E7D32", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>✅ Reprogramación autorizada</span>
@@ -3876,7 +3890,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                     </td>
                     <td style={{ padding: "10px 10px", textAlign: "center" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                        {prog.reprogramacionPendiente && prog.validada ? (
+                        {(prog.reprogramacionPendiente || prog.reprogramacion_pendiente) && prog.validada ? (
                           <button onClick={() => aprobarReprogramacion(prog.id)} style={{ padding: "5px 10px", borderRadius: 4, border: "none", background: "#2E7D32", color: "white", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
                             Aceptar reprogramación
                           </button>
@@ -3915,7 +3929,6 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                                 <tr style={{ borderBottom: "1px solid #e8e8e8", background: "#fff" }}>
                                   <th style={{ textAlign: "left", padding: "8px 10px", color: "#666", fontWeight: 700, width: 60 }}>No.</th>
                                   <th style={{ textAlign: "left", padding: "8px 10px", color: "#666", fontWeight: 700 }}>Práctica</th>
-                                  <th style={{ textAlign: "center", padding: "8px 10px", color: "#666", fontWeight: 700, width: 140 }}>Fecha</th>
                                   <th style={{ textAlign: "center", padding: "8px 10px", color: "#666", fontWeight: 700, width: 140 }}>Reprogramación</th>
                                 </tr>
                               </thead>
@@ -3924,7 +3937,6 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                                   <tr key={pr.id || idx} style={{ borderBottom: "1px solid #f2f2f2" }}>
                                     <td style={{ padding: "8px 10px", fontWeight: 700, color: "#511013" }}>{pr.numero}</td>
                                     <td style={{ padding: "8px 10px", color: "#333" }}>{pr.nombre || "—"}</td>
-                                    <td style={{ padding: "8px 10px", textAlign: "center", color: "#555" }}>{fmtDate(pr.fecha)}</td>
                                     <td style={{ padding: "8px 10px", textAlign: "center", color: pr.reprogramacion ? "#F39200" : "#aaa" }}>{pr.reprogramacion ? fmtDate(pr.reprogramacion) : "No"}</td>
                                   </tr>
                                 ))}
@@ -4043,12 +4055,13 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#333", margin: "0 0 8px" }}>Prácticas ({prog.practicas.length} total)</p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
                     {prog.practicas.map((pr, idx) => {
-                      const isPast = pr.fecha < today;
-                      const isComing = pr.fecha >= today && pr.fecha <= new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+                      const effectiveDate = getEffectivePracticeDate(pr);
+                      const isPast = effectiveDate < today;
+                      const isComing = effectiveDate >= today && effectiveDate <= new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
                       return (
                         <div key={idx} style={{ padding: "8px 12px", background: isPast ? "#f0f0f0" : isComing ? "#FFF4E8" : "#f9f9f9", borderRadius: 6, border: `1px solid ${isPast ? "#ddd" : isComing ? "#F39200" : "#eee"}`, opacity: isPast ? 0.6 : 1 }}>
                           <div style={{ fontSize: 11, fontWeight: 700, color: isPast ? "#888" : isComing ? "#E8641C" : "#333", marginBottom: 2 }}>#{pr.numero}: {pr.nombre}</div>
-                          <div style={{ fontSize: 11, color: "#666" }}>{fmtDate(pr.fecha)}</div>
+                          <div style={{ fontSize: 11, color: "#666" }}>{fmtDate(effectiveDate)}</div>
                         </div>
                       );
                     })}
@@ -4057,20 +4070,20 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid #eee" }}>
                   <div>
-                    {prog.reprogramacionPendiente && prog.validada ? (
-                      <span style={{ fontSize: 12, background: "#FFF4E8", color: "#E8641C", padding: "4px 12px", borderRadius: 20, fontWeight: 700 }}>🔔 Reprogramación solicitada</span>
+                    {(prog.reprogramacionPendiente || prog.reprogramacion_pendiente) && prog.validada ? (
+                      <span style={{ fontSize: 12, background: "#FFF4E8", color: "#E8641C", padding: "4px 12px", borderRadius: 20, fontWeight: 700 }}> Reprogramación solicitada</span>
                     ) : prog.reprogramacionAutorizada && !prog.validada ? (
-                      <span style={{ fontSize: 12, background: "#C8E6C9", color: "#2E7D32", padding: "4px 12px", borderRadius: 20, fontWeight: 700 }}>✅ Reprogramación autorizada</span>
+                      <span style={{ fontSize: 12, background: "#C8E6C9", color: "#2E7D32", padding: "4px 12px", borderRadius: 20, fontWeight: 700 }}> Reprogramación autorizada</span>
                     ) : prog.validada ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 12, background: "#C8E6C9", color: "#2E7D32", padding: "4px 12px", borderRadius: 20, fontWeight: 700 }}>✓ Validada</span>
                         <span style={{ fontSize: 11, color: "#888" }}>por {users.find(u => u.id === prog.validadoPor)?.name.split(" ").slice(-1)[0]} el {fmtDate(prog.fechaValidacion)}</span>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 12, background: "#FFF4E8", color: "#F39200", padding: "4px 12px", borderRadius: 20, fontWeight: 700 }}>⏳ Pendiente de validar</span>
+                      <span style={{ fontSize: 12, background: "#FFF4E8", color: "#F39200", padding: "4px 12px", borderRadius: 20, fontWeight: 700 }}>Pendiente de validar</span>
                     )}
                   </div>
-                  {prog.reprogramacionPendiente && prog.validada ? (
+                  {(prog.reprogramacionPendiente || prog.reprogramacion_pendiente) && prog.validada ? (
                     <button onClick={() => aprobarReprogramacion(prog.id)} style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "#2E7D32", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                       ✓ Aceptar reprogramación
                     </button>
