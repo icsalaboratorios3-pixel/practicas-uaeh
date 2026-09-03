@@ -479,7 +479,7 @@ function MainApp({ currentUser, users, setUsers, setCurrentUser, laboratorios, s
     if (role === "admin") return [
       { id: "dashboard", label: "Panel General", icon: "" },
       { id: "programaciones", label: "Programaciones", icon: "" },
-      { id: "asistencias", label: "Asistencias", icon: "✓" },
+      { id: "asistencias", label: "Asistencias", icon: "" },
       { id: "laboratorios", label: "Laboratorios", icon: "" },
       { id: "programas", label: "Programas Educativos", icon: "" },
       { id: "profesores", label: "Profesores", icon: "" },
