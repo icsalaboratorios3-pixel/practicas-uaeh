@@ -1333,7 +1333,7 @@ function ProgramacionesAdmin({ currentUser, programaciones, users, laboratorios,
 
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative", paddingRight: 80 }}>
+          <div className="programacion-modal" style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative" }}>
             <ProgramacionDetail
               prog={selected}
               users={users}
@@ -1574,7 +1574,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.5rem", padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>
+      <div className="programacion-detail-header" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "1.5rem", padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={onBack} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer", fontSize: 13, color: "#555" }}>Volver</button>
         </div>
@@ -1616,7 +1616,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
         </Card>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: "1.5rem" }}>
+      <div className="programacion-detail-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: "1.5rem" }}>
         <Card>
           <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 1rem", color: "#333" }}>Información General</h3>
           {!editMode ? (
@@ -1716,7 +1716,8 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
           <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "#333" }}>Tabla de Prácticas del Semestre</h3>
           {editMode && canEditPracticas && <button onClick={addPractica} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#511013", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Agregar práctica</button>}
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className="programacion-practices-table" style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", minWidth: 620, borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
               <th style={{ textAlign: "center", padding: "8px 10px", color: "#888", fontWeight: 600, width: 60 }}>No.</th>
@@ -1758,6 +1759,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
     </div>
   );
@@ -4101,7 +4103,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
 
       {detailProgramacion && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative", paddingRight: 80 }}>
+          <div className="programacion-modal" style={{ width: "100%", maxWidth: 1100, maxHeight: "calc(100vh - 40px)", overflowY: "auto", background: "white", borderRadius: 18, boxShadow: "0 30px 90px rgba(0,0,0,0.25)", position: "relative" }}>
             <ProgramacionDetail
               prog={detailProgramacion}
               users={users}

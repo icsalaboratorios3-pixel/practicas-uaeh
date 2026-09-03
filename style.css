@@ -237,3 +237,52 @@ td {
 tr:hover {
   background: #fafafa;
 }
+
+.programacion-modal {
+  padding: 0 16px 20px;
+  border-radius: 8px !important;
+}
+
+.programacion-detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fbf7f3 !important;
+  border-bottom-color: #eadfd6 !important;
+  min-height: 76px;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+
+.programacion-detail-header h2 {
+  font-size: 25px !important;
+}
+
+@media (max-width: 760px) {
+  .programacion-modal {
+    max-height: calc(100vh - 20px) !important;
+    border-radius: 6px !important;
+    padding: 0 10px 14px;
+  }
+
+  .programacion-detail-header {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+    padding: 10px 4px !important;
+  }
+
+  .programacion-detail-header h2 {
+    order: 2;
+    flex-basis: calc(100% - 150px);
+    font-size: 17px !important;
+  }
+
+  .programacion-detail-header > div:last-child {
+    order: 3;
+    margin-left: auto;
+  }
+
+  .programacion-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
