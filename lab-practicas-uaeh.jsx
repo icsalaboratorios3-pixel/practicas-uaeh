@@ -1591,7 +1591,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
 
       {effectiveReadOnly && (
         <Card style={{ marginBottom: "1.5rem", background: "#FFFBF7", border: "1px solid #F39200", padding: "12px 16px" }}>
-          <p style={{ fontSize: 12, color: "#F39200", fontWeight: 700, margin: 0 }}>🔒 Esta programación ha sido validada</p>
+          <p style={{ fontSize: 12, color: "#F39200", fontWeight: 700, margin: 0 }}> Esta programación ha sido validada</p>
           {data.reprogramacionPendiente ? (
             <p style={{ fontSize: 11, color: "#D97E15", margin: "4px 0 0" }}>
               Se ha enviado una solicitud de reprogramación al responsable. Espera su aprobación para poder editar la programación.
@@ -1609,7 +1609,7 @@ function ProgramacionDetail({ prog, users = [], laboratorios, programas, onBack,
 
       {data.reprogramacionAutorizada && !data.validada && (
         <Card style={{ marginBottom: "1.5rem", background: "#E8F5E9", border: "1px solid #C8E6C9", padding: "12px 16px" }}>
-          <p style={{ fontSize: 12, color: "#2E7D32", fontWeight: 700, margin: 0 }}>✅ Reprogramación autorizada</p>
+          <p style={{ fontSize: 12, color: "#2E7D32", fontWeight: 700, margin: 0 }}>Reprogramación autorizada</p>
           <p style={{ fontSize: 11, color: "#2E7D32", margin: "4px 0 0" }}>
             El responsable ha aprobado la reprogramación. Ahora puedes editar los detalles y guardar la nueva programación.
           </p>
@@ -3877,7 +3877,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                       {(prog.reprogramacionPendiente || prog.reprogramacion_pendiente) && prog.validada ? (
                         <span style={{ fontSize: 11, background: "#FFF4E8", color: "#E8641C", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>Reprogramación solicitada</span>
                       ) : prog.reprogramacionAutorizada && !prog.validada ? (
-                        <span style={{ fontSize: 11, background: "#C8E6C9", color: "#2E7D32", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>✅ Reprogramación autorizada</span>
+                        <span style={{ fontSize: 11, background: "#C8E6C9", color: "#2E7D32", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>Reprogramación autorizada</span>
                       ) : prog.validada ? (
                         <div>
                           <span style={{ fontSize: 11, background: "#C8E6C9", color: "#2E7D32", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>✓ Validada</span>
@@ -3887,7 +3887,7 @@ function CalendarioLaboratorio({ currentUser, programaciones, users, programas, 
                           </div>
                         </div>
                       ) : (
-                        <span style={{ fontSize: 11, background: "#FFF4E8", color: "#F39200", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>⏳ Pendiente</span>
+                        <span style={{ fontSize: 11, background: "#FFF4E8", color: "#F39200", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>Pendiente</span>
                       )}
                     </td>
                     <td style={{ padding: "10px 10px", textAlign: "center" }}>
