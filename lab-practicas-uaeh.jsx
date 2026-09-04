@@ -616,8 +616,9 @@ function Footer() {
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <img src="/images/csa-logo.png" alt="logo" style={{ height: 28, objectFit: "contain" }} />
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#511013" }}>Prácticas de Laboratorio</div>
-          <div style={{ fontSize: 12, color: "#555" }}>Instituto de Ciencias de la Salud (ICSa) — UAEH</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#511013" }}>Instituto de Ciencias de la Salud (ICSa) — UAEH</div>
+          <div style={{ fontSize: 12, color: "#777" }}>Coordinación de laboratorios ICSA.</div> 
+          <div style={{ fontSize: 12, color: "#794949" }}>Universidad Autónoma del Estado de Hidalgo.</div>
         </div>
       </div>
       <div style={{ color: "#555", textAlign: "center", flex: 1 }}>
@@ -629,13 +630,15 @@ function Footer() {
         </div>
       </div>
       <div style={{ color: "#777", textAlign: "right", minWidth: 200 }}>
-        <div>Desarrollo: Rogelio Rocha — <a href="mailto:ro475972@uaeh.edu.mx">ro475972@uaeh.edu.mx</a></div>
+        <div>Desarrollo:</div>
+        <div> -M. en C. Iris Cristina López Santillán — <a href="mailto:icsa_laboratorios@uaeh.edu.mx ">icsa_laboratorios@uaeh.edu.mx </a></div>
+        <div>- Rogelio Rocha Hernández — <a href="mailto:ro475972@uaeh.edu.mx">ro475972@uaeh.edu.mx</a></div>
         <div style={{ marginTop: 4 }}>{version} · {year}</div>
         <div style={{ marginTop: 6, fontSize: 11, color: "#999" }}>© {year} Instituto de Ciencias de la Salud, Universidad Autónoma del Estado de Hidalgo. Todos los derechos reservados.</div>
       </div>
     </footer>
   );
-}
+}     
 
 function PaseListaSection({ currentUser, programaciones = [], users = [], laboratorios = [], responsableLaboratorios = [], setProgramaciones, notify }) {
   const role = currentUser?.role;
